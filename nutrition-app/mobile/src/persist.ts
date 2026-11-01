@@ -7,6 +7,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FoodEntry } from '../../shared/types';
+import type { WorkoutEntry } from '../../shared/workouts';
 import { useCapability, type CollectionRef, type Db, type UserCap } from './runtime';
 import type { AppState } from './store';
 
@@ -32,6 +33,7 @@ interface DayDoc {
   entries: FoodEntry[];
   waterMl: number;
   steps: number | null;
+  workouts?: WorkoutEntry[];
 }
 
 /** Splits app state into database documents keyed by document id. */
@@ -39,13 +41,14 @@ export function toDocs(s: AppState): Docs {
   const docs: Docs = {
     core: { profile: s.profile, weights: s.weights, fasting: s.fasting, glp1: s.glp1 },
   };
-  const days = new Set([...Object.keys(s.entries), ...Object.keys(s.waterMl), ...Object.keys(s.manualSteps)]);
+  const days = new Set([...Object.keys(s.entries), ...Object.keys(s.waterMl), ...Object.keys(s.manualSteps), ...Object.keys(s.workouts)]);
   for (const day of days) {
     const d: DayDoc = {
       day,
       entries: s.entries[day] ?? [],
       waterMl: s.waterMl[day] ?? 0,
       steps: s.manualSteps[day] ?? null,
+      workouts: s.workouts[day] ?? [],
     };
     docs[`d${day}`] = d as unknown as Record<string, unknown>;
   }
@@ -64,6 +67,7 @@ export function fromDocs(docs: Docs): Partial<AppState> | null {
     entries: {},
     waterMl: {},
     manualSteps: {},
+    workouts: {},
   };
   for (const [id, body] of Object.entries(docs)) {
     if (!id.startsWith('d')) continue;
@@ -71,6 +75,7 @@ export function fromDocs(docs: Docs): Partial<AppState> | null {
     if ((d.entries ?? []).length) s.entries![d.day] = d.entries;
     if (d.waterMl) s.waterMl![d.day] = d.waterMl;
     if (d.steps != null) s.manualSteps![d.day] = d.steps;
+    if ((d.workouts ?? []).length) s.workouts![d.day] = d.workouts!;
   }
   return s;
 }

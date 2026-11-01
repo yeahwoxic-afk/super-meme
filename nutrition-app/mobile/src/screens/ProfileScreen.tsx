@@ -74,6 +74,9 @@ export function ProfileScreen({ onSaved, onboarding }: { onSaved?: () => void; o
           <Field label="Желаемый вес" keyboardType="decimal-pad" value={target} onChangeText={setTarget} placeholder="—" />
         </View>
         <SectionLabel>Активность</SectionLabel>
+        <Text style={[styles.muted, { marginBottom: space(2) }]}>
+          Если будете записывать тренировки во вкладке «Спорт», выберите «Сидячий» — сожжённое добавится к норме само.
+        </Text>
         <View style={styles.wrap}>
           {ACTIVITY.map((a) => (
             <Chip key={a.id} label={a.label} active={activity === a.id} onPress={() => setActivity(a.id)} />

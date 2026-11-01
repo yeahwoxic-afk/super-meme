@@ -5,6 +5,7 @@ import { addDays, humanDay } from '../../../shared/date';
 import { calcDailyTargets } from '../../../shared/goals';
 import { sumMacros } from '../../../shared/nutrition';
 import type { FoodEntry, MealType } from '../../../shared/types';
+import { totalBurned, totalMinutes } from '../../../shared/workouts';
 import { Button, Card, Empty, ProgressBar, Ring, SectionLabel } from '../components/ui';
 import { today, useStore } from '../store';
 import { colors, space } from '../theme';
@@ -35,13 +36,17 @@ function confirm(message: string, onYes: () => void) {
   ]);
 }
 
-export function DiaryScreen({ onAdd }: { onAdd: () => void }) {
+export function DiaryScreen({ onAdd, onWorkouts }: { onAdd: () => void; onWorkouts: () => void }) {
   const { state, dispatch } = useStore();
   const [day, setDay] = useState(today());
   const targets = calcDailyTargets(state.profile!);
   const entries = state.entries[day] ?? [];
   const eaten = sumMacros(entries);
-  const left = targets.calories - eaten.calories;
+  const workouts = state.workouts[day] ?? [];
+  const burned = totalBurned(workouts);
+  // Calories burned in workouts are added to the day's budget.
+  const budget = targets.calories + burned;
+  const left = budget - eaten.calories;
   const isToday = day === today();
 
   return (
@@ -62,12 +67,13 @@ export function DiaryScreen({ onAdd }: { onAdd: () => void }) {
       </View>
 
       <Card style={styles.summary}>
-        <Ring size={170} stroke={14} progress={eaten.calories / targets.calories} color={left < 0 ? colors.danger : colors.primary}>
+        <Ring size={170} stroke={14} progress={eaten.calories / budget} color={left < 0 ? colors.danger : colors.primary}>
           <Text style={styles.ringValue}>{Math.abs(left)}</Text>
           <Text style={styles.ringLabel}>{left >= 0 ? 'ккал осталось' : 'ккал сверх нормы'}</Text>
         </Ring>
         <View style={styles.sideStats}>
           <Stat label="Норма" value={targets.calories} />
+          {burned > 0 && <Stat label="Тренировки" value={burned} prefix="+" color={colors.fasting} />}
           <Stat label="Съедено" value={eaten.calories} />
         </View>
       </Card>
@@ -79,6 +85,15 @@ export function DiaryScreen({ onAdd }: { onAdd: () => void }) {
           <ProgressBar label="Углеводы" value={eaten.carbs} target={targets.carbs} unit="г" color={colors.carbs} />
         </View>
       </Card>
+
+      <Pressable accessibilityRole="button" onPress={onWorkouts}>
+        <Card style={styles.workoutCard}>
+          <Text style={styles.mealTitle}>🏋️ Тренировки</Text>
+          <Text style={[styles.mealKcal, burned > 0 && { color: colors.fasting }]}>
+            {burned > 0 ? `+${burned} ккал · ${totalMinutes(workouts)} мин` : isToday ? 'Добавить ›' : '—'}
+          </Text>
+        </Card>
+      </Pressable>
 
       {MEALS.map((m) => {
         const list = entries.filter((e) => e.meal === m.id);
@@ -128,11 +143,14 @@ export function DiaryScreen({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, prefix = '', color }: { label: string; value: number; prefix?: string; color?: string }) {
   return (
     <View style={{ marginBottom: space(3) }}>
       <Text style={styles.muted}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, color ? { color } : null]}>
+        {prefix}
+        {value}
+      </Text>
     </View>
   );
 }
@@ -148,6 +166,7 @@ const styles = StyleSheet.create({
   sideStats: { justifyContent: 'center' },
   statValue: { fontSize: 22, fontWeight: '700', color: colors.text },
   macroRow: { flexDirection: 'row', gap: space(3) },
+  workoutCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   mealHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: space(2) },
   mealTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   mealKcal: { fontSize: 15, fontWeight: '700', color: colors.muted },

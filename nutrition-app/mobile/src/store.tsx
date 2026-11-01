@@ -7,6 +7,7 @@ import React, { createContext, useContext, useEffect, useMemo, useReducer, useRe
 import { dayKey } from '../../shared/date';
 import type { Glp1Dose } from '../../shared/glp1';
 import type { FoodEntry, UserProfile } from '../../shared/types';
+import type { WorkoutEntry } from '../../shared/workouts';
 import { CloudSync, loadLocal, saveLocal } from './persist';
 import { inClaude } from './runtime';
 
@@ -26,6 +27,7 @@ export interface AppState {
   entries: Record<string, FoodEntry[]>;
   waterMl: Record<string, number>;
   manualSteps: Record<string, number>;
+  workouts: Record<string, WorkoutEntry[]>;
   weights: WeightRecord[];
   fasting: { protocolId: string; startedAt: string | null; history: FastRecord[] };
   glp1: { medicationId: string | null; doses: Glp1Dose[] };
@@ -36,6 +38,7 @@ export const initialState: AppState = {
   entries: {},
   waterMl: {},
   manualSteps: {},
+  workouts: {},
   weights: [],
   fasting: { protocolId: '16:8', startedAt: null, history: [] },
   glp1: { medicationId: null, doses: [] },
@@ -48,6 +51,8 @@ type Action =
   | { type: 'removeEntry'; day: string; id: string }
   | { type: 'addWater'; day: string; ml: number }
   | { type: 'setSteps'; day: string; steps: number }
+  | { type: 'addWorkout'; day: string; workout: WorkoutEntry }
+  | { type: 'removeWorkout'; day: string; id: string }
   | { type: 'logWeight'; day: string; kg: number }
   | { type: 'setFastingProtocol'; protocolId: string }
   | { type: 'startFast'; at: string }
@@ -70,6 +75,10 @@ export function reducer(s: AppState, a: Action): AppState {
       return { ...s, waterMl: { ...s.waterMl, [a.day]: Math.max(0, (s.waterMl[a.day] ?? 0) + a.ml) } };
     case 'setSteps':
       return { ...s, manualSteps: { ...s.manualSteps, [a.day]: Math.max(0, a.steps) } };
+    case 'addWorkout':
+      return { ...s, workouts: { ...s.workouts, [a.day]: [...(s.workouts[a.day] ?? []), a.workout] } };
+    case 'removeWorkout':
+      return { ...s, workouts: { ...s.workouts, [a.day]: (s.workouts[a.day] ?? []).filter((w) => w.id !== a.id) } };
     case 'logWeight': {
       const weights = [...s.weights.filter((w) => w.day !== a.day), { day: a.day, kg: a.kg }].sort((x, y) =>
         x.day.localeCompare(y.day),

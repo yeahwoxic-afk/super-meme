@@ -7,14 +7,16 @@ import { DiaryScreen } from './src/screens/DiaryScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ScanScreen } from './src/screens/ScanScreen';
 import { TrackersScreen } from './src/screens/TrackersScreen';
+import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { StoreProvider, useStore } from './src/store';
 import { colors } from './src/theme';
 
-type Tab = 'diary' | 'scan' | 'trackers' | 'profile';
+type Tab = 'diary' | 'scan' | 'workouts' | 'trackers' | 'profile';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'diary', label: 'Дневник', icon: '📒' },
   { id: 'scan', label: 'Сканер', icon: '✨' },
+  { id: 'workouts', label: 'Спорт', icon: '🏋️' },
   { id: 'trackers', label: 'Привычки', icon: '💧' },
   { id: 'profile', label: 'Цели', icon: '🎯' },
 ];
@@ -36,7 +38,8 @@ function Shell() {
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
-        {tab === 'diary' && <DiaryScreen onAdd={() => setTab('scan')} />}
+        {tab === 'diary' && <DiaryScreen onAdd={() => setTab('scan')} onWorkouts={() => setTab('workouts')} />}
+        {tab === 'workouts' && <WorkoutsScreen />}
         {tab === 'scan' && <ScanScreen onDone={() => setTab('diary')} />}
         {tab === 'trackers' && <TrackersScreen />}
         {tab === 'profile' && <ProfileScreen onSaved={() => setTab('diary')} />}
