@@ -2,7 +2,8 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { buildFoodItem, sumMacros } from '../../shared/nutrition';
 import type { RecognitionResult } from '../../shared/types';
-import { __test, RecognitionRefusedError, type FoodRecognizer } from '../src/ai';
+import { normalizeRecognition } from '../../shared/recognition';
+import { RecognitionRefusedError, type FoodRecognizer } from '../src/ai';
 import { createApp } from '../src/app';
 import { OpenFoodFactsLookup, parseOffProduct, type BarcodeLookup } from '../src/barcode';
 
@@ -92,7 +93,7 @@ describe('POST /api/targets', () => {
 
 describe('AI output post-processing', () => {
   it('drops zero-gram items, clamps confidence and computes totals', () => {
-    const r = __test.toResult({
+    const r = normalizeRecognition({
       items: [
         { name: ' Борщ ', grams: 300, per100g: { calories: 50, protein: 2.5, fat: 2, carbs: 5.5 }, confidence: 1.4 },
         { name: 'Ничего', grams: 0, per100g: { calories: 10, protein: 0, fat: 0, carbs: 2.5 }, confidence: 0.5 },
@@ -104,6 +105,21 @@ describe('AI output post-processing', () => {
     expect(r.items[0].confidence).toBe(1);
     expect(r.totals.calories).toBe(150);
     expect(r.note).toBeUndefined();
+  });
+
+  it('tolerates malformed model JSON (strings, missing fields, junk items)', () => {
+    const r = normalizeRecognition({
+      items: [
+        { name: 'Яблоко', grams: '150', per100g: { calories: '52', protein: 0.3, fat: 0.2, carbs: 14 } },
+        { grams: 100 },
+        null,
+        'мусор',
+      ],
+    });
+    expect(r.items).toHaveLength(1);
+    expect(r.items[0].calories).toBe(78);
+    expect(r.items[0].confidence).toBe(0.7);
+    expect(normalizeRecognition(null).items).toEqual([]);
   });
 });
 

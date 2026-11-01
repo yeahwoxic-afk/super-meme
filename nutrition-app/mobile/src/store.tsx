@@ -1,12 +1,14 @@
 /**
- * App state: profile, food diary and habit trackers. Everything is stored
- * on-device (AsyncStorage); the server is stateless.
+ * App state: profile, food diary and habit trackers. Stored on the device
+ * and, inside a Claude viewer, synced to the viewer's private cloud folder
+ * (see persist.ts). The server is stateless.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { dayKey } from '../../shared/date';
 import type { Glp1Dose } from '../../shared/glp1';
 import type { FoodEntry, UserProfile } from '../../shared/types';
+import { CloudSync, loadLocal, saveLocal } from './persist';
+import { inClaude } from './runtime';
 
 export interface FastRecord {
   startedAt: string;
@@ -95,8 +97,6 @@ export function reducer(s: AppState, a: Action): AppState {
   }
 }
 
-const STORAGE_KEY = 'nutri-ai/state/v1';
-
 interface Ctx {
   state: AppState;
   ready: boolean;
@@ -105,27 +105,41 @@ interface Ctx {
 
 const StoreContext = createContext<Ctx | null>(null);
 
+const merge = (s: Partial<AppState>): AppState => ({
+  ...initialState,
+  ...s,
+  fasting: { ...initialState.fasting, ...s.fasting },
+  glp1: { ...initialState.glp1, ...s.glp1 },
+});
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [ready, setReady] = React.useState(false);
   const hydrated = useRef(false);
+  const cloud = useRef<CloudSync | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) dispatch({ type: 'hydrate', state: { ...initialState, ...JSON.parse(raw) } });
-      })
-      .catch(() => {})
-      .finally(() => {
-        hydrated.current = true;
-        setReady(true);
-      });
+    (async () => {
+      const local = await loadLocal();
+      let loaded = local;
+      if (inClaude()) {
+        // Inside Claude the private cloud copy is the source of truth;
+        // a device-only copy (first sync) is uploaded by the save effect.
+        cloud.current = await CloudSync.connect();
+        const remote = await cloud.current?.load().catch(() => null);
+        if (remote) loaded = remote;
+      }
+      if (loaded) dispatch({ type: 'hydrate', state: merge(loaded) });
+      hydrated.current = true;
+      setReady(true);
+    })();
   }, []);
 
   useEffect(() => {
     if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => {});
-  }, [state]);
+    saveLocal(state);
+    cloud.current?.save(state);
+  }, [state, ready]);
 
   const value = useMemo(() => ({ state, ready, dispatch }), [state, ready]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

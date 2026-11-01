@@ -9,7 +9,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
-import { buildFoodItem, sumMacros } from '../../shared/nutrition';
+import { normalizeRecognition, photoPrompt, RECOGNITION_INSTRUCTIONS, textPrompt } from '../../shared/recognition';
 import type { RecognitionResult } from '../../shared/types';
 
 export type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
@@ -42,27 +42,7 @@ export const AiRecognitionSchema = z.object({
 });
 export type AiRecognition = z.infer<typeof AiRecognitionSchema>;
 
-export const SYSTEM_PROMPT = `Ты — нутрициолог-ассистент в приложении подсчёта калорий.
-Задача: определить продукты и блюда и оценить их пищевую ценность.
-
-Правила:
-- Разбивай приём пищи на отдельные позиции (гарнир, мясо, соус, напиток — отдельно).
-- Для каждой позиции укажи пищевую ценность НА 100 г (ккал, белки, жиры, углеводы) по типичным справочным данным (USDA, Скурихин) и оцени вес съедобной порции в граммах.
-- Вес оценивай по размеру тарелки, столовых приборов, упаковки; если пользователь назвал вес или количество (штуки, ложки, стаканы) — пересчитай в граммы.
-- Если на фото этикетка с таблицей пищевой ценности — используй цифры с этикетки.
-- Учитывай способ приготовления (жарка добавляет масло).
-- Если еды нет или распознать нельзя — верни пустой список items и объясни в note.
-- confidence: 0.9+ если блюдо и порция очевидны, 0.5–0.8 если порция примерная, ниже — если сомневаешься.
-- Названия пиши по-русски, коротко.`;
-
-function toResult(ai: AiRecognition): RecognitionResult {
-  const items = ai.items
-    .filter((i) => i.grams > 0)
-    .map((i) =>
-      buildFoodItem(i.name.trim(), Math.round(i.grams), i.per100g, Math.min(1, Math.max(0, i.confidence))),
-    );
-  return { items, totals: sumMacros(items), note: ai.note || undefined };
-}
+export const SYSTEM_PROMPT = RECOGNITION_INSTRUCTIONS;
 
 export interface ClaudeRecognizerOptions {
   model?: string;
@@ -85,18 +65,13 @@ export class ClaudeFoodRecognizer implements FoodRecognizer {
   fromPhoto(imageBase64: string, mediaType: ImageMediaType, hint?: string) {
     return this.run([
       { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
-      {
-        type: 'text',
-        text: hint?.trim()
-          ? `Определи еду на фото. Уточнение от пользователя: ${hint.trim()}`
-          : 'Определи еду на фото.',
-      },
+      { type: 'text', text: photoPrompt(hint) },
     ]);
   }
 
   fromText(description: string) {
     return this.run([
-      { type: 'text', text: `Пользователь описал, что съел (текст или расшифровка голоса):\n"""${description}"""` },
+      { type: 'text', text: textPrompt(description) },
     ]);
   }
 
@@ -119,8 +94,6 @@ export class ClaudeFoodRecognizer implements FoodRecognizer {
     if (!response.parsed_output) {
       throw new Error(`Не удалось разобрать ответ модели (stop_reason=${response.stop_reason})`);
     }
-    return toResult(response.parsed_output);
+    return normalizeRecognition(response.parsed_output);
   }
 }
-
-export const __test = { toResult };

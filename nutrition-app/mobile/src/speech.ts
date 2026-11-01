@@ -4,6 +4,7 @@
  * mode falls back to the keyboard's dictation button.
  */
 import type { ExpoSpeechRecognitionModule as ModuleType } from 'expo-speech-recognition';
+import { inClaude } from './runtime';
 
 type SpeechModule = typeof ModuleType;
 
@@ -16,6 +17,8 @@ try {
 }
 
 export const speechAvailable = (): boolean => {
+  // A Claude viewer frame refuses microphone access: use keyboard dictation there.
+  if (inClaude()) return false;
   try {
     return !!mod && mod.isRecognitionAvailable();
   } catch {

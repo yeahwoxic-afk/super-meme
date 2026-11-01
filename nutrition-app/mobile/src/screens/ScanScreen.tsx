@@ -9,6 +9,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import { sumMacros, withGrams } from '../../../shared/nutrition';
 import type { FoodItem, FoodSource, MealType, RecognitionResult } from '../../../shared/types';
 import { api } from '../api';
+import { inClaude } from '../runtime';
 import { Button, Card, Chip, Empty, SectionLabel, Title } from '../components/ui';
 import { startDictation, speechAvailable } from '../speech';
 import { newId, today, useStore } from '../store';
@@ -20,7 +21,7 @@ type Mode = 'photo' | 'voice' | 'barcode' | 'text';
 const MODES: { id: Mode; label: string }[] = [
   { id: 'photo', label: '📷 Фото' },
   { id: 'voice', label: '🎙️ Голос' },
-  { id: 'barcode', label: '▥ Штрихкод' },
+  { id: 'barcode', label: inClaude() ? '▥ Упаковка' : '▥ Штрихкод' },
   { id: 'text', label: '⌨️ Текст' },
 ];
 
@@ -72,7 +73,9 @@ function ErrorText({ text }: { text: string | null }) {
 
 /* ---------- Photo ---------- */
 
-function PhotoMode({ onResult }: { onResult: OnResult }) {
+const LABEL_HINT = 'Это упаковка продукта: прочитай таблицу пищевой ценности и массу на этикетке.';
+
+function PhotoMode({ onResult, label }: { onResult: OnResult; label?: boolean }) {
   const [hint, setHint] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +104,7 @@ function PhotoMode({ onResult }: { onResult: OnResult }) {
       const ref = await ImageManipulator.manipulate(res.assets[0].uri).resize({ width: 1024 }).renderAsync();
       const img = await ref.saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
       setPreview(img.uri);
-      const result = await api.recognizePhoto(img.base64!, hint);
+      const result = await api.recognizePhoto(img.base64!, label ? `${LABEL_HINT} ${hint}` : hint);
       if (result.items.length === 0) setError(result.note ?? 'Еда на фото не найдена');
       else onResult({ result, source: 'photo', preview: img.uri });
     } catch (e) {
@@ -114,7 +117,9 @@ function PhotoMode({ onResult }: { onResult: OnResult }) {
   return (
     <Card>
       <Text style={styles.help}>
-        Сфотографируйте тарелку целиком — ИИ определит блюда, оценит вес порции и посчитает КБЖУ. Можно снять и этикетку.
+        {label
+          ? 'Сфотографируйте упаковку так, чтобы была видна таблица пищевой ценности и масса. ИИ перепишет КБЖУ с этикетки.'
+          : 'Сфотографируйте тарелку целиком — ИИ определит блюда, оценит вес порции и посчитает КБЖУ. Можно снять и этикетку.'}
       </Text>
       {preview && <Image source={{ uri: preview }} style={styles.preview} />}
       <TextInput
@@ -210,6 +215,13 @@ function VoiceMode({ onResult }: { onResult: OnResult }) {
 /* ---------- Barcode ---------- */
 
 function BarcodeMode({ onResult }: { onResult: OnResult }) {
+  // Inside Claude the page has no internet access for the barcode database,
+  // so packaged food is read from a photo of its label instead.
+  if (inClaude()) return <PhotoMode onResult={onResult} label />;
+  return <BarcodeScanner onResult={onResult} />;
+}
+
+function BarcodeScanner({ onResult }: { onResult: OnResult }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
