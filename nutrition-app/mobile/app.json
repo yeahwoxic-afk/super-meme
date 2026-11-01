@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "NutriAI",
+    "slug": "nutri-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.nutriai.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Камера нужна, чтобы фотографировать еду и сканировать штрихкоды.",
+        "NSPhotoLibraryUsageDescription": "Доступ к галерее нужен, чтобы распознать еду на сохранённом фото.",
+        "NSMotionUsageDescription": "Доступ к датчику движения нужен для подсчёта шагов.",
+        "NSMicrophoneUsageDescription": "Микрофон нужен, чтобы надиктовать, что вы съели.",
+        "NSSpeechRecognitionUsageDescription": "Распознавание речи превращает вашу диктовку в список продуктов."
+      }
+    },
+    "android": {
+      "package": "com.nutriai.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E8F5EE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["android.permission.CAMERA", "android.permission.RECORD_AUDIO", "android.permission.ACTIVITY_RECOGNITION"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Камера нужна, чтобы фотографировать еду и сканировать штрихкоды." }],
+      ["expo-image-picker", { "photosPermission": "Доступ к галерее нужен, чтобы распознать еду на сохранённом фото." }],
+      ["expo-sensors", { "motionPermission": "Доступ к датчику движения нужен для подсчёта шагов." }],
+      ["expo-speech-recognition", {
+        "microphonePermission": "Микрофон нужен, чтобы надиктовать, что вы съели.",
+        "speechRecognitionPermission": "Распознавание речи превращает вашу диктовку в список продуктов."
+      }]
+    ]
+  }
+}
