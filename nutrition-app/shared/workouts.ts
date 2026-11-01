@@ -90,3 +90,19 @@ export function totalBurned(list: readonly WorkoutEntry[]): number {
 export function totalMinutes(list: readonly WorkoutEntry[]): number {
   return list.reduce((s, w) => s + w.minutes, 0);
 }
+
+/* ---------- Walking (daily steps) ---------- */
+
+/**
+ * Everyday walking from the step counter. Assumes a normal pace of about
+ * 100 steps/min at ~3.5 MET (Compendium: walking 4.8 km/h), counted net like
+ * workouts:  kcal = (MET − 1) · 3.5 · weightKg / 200 · steps / cadence
+ * ≈ 0.044 kcal per step at 80 kg (≈ 350 kcal for 10 000 steps).
+ */
+export const WALKING = { met: 3.5, stepsPerMinute: 100 } as const;
+
+export function stepsKcal(steps: number, weightKg: number): number {
+  if (steps <= 0 || weightKg <= 0) return 0;
+  const minutes = steps / WALKING.stepsPerMinute;
+  return Math.round(((WALKING.met - 1) * 3.5 * weightKg) / 200 * minutes);
+}

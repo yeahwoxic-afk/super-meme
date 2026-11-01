@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   findWorkoutType,
+  stepsKcal,
   totalBurned,
   totalMinutes,
   workoutKcal,
@@ -46,5 +47,16 @@ describe('catalog', () => {
     });
     expect(totalBurned([w(200, 30), w(150, 45)])).toBe(350);
     expect(totalMinutes([w(200, 30), w(150, 45)])).toBe(75);
+  });
+});
+
+describe('stepsKcal', () => {
+  it('converts steps to net walking calories', () => {
+    // 10 000 steps = 100 min; (3.5 - 1) * 3.5 * 80 / 200 * 100 = 350
+    expect(stepsKcal(10000, 80)).toBe(350);
+    expect(stepsKcal(5000, 60)).toBe(131);
+  });
+  it('is zero without steps', () => {
+    expect(stepsKcal(0, 80)).toBe(0);
   });
 });

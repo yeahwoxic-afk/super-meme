@@ -14,6 +14,9 @@ export const colors = {
   carbs: '#A066D3',
   water: '#2BA8E0',
   fasting: '#F07A4E',
+  walk: '#1597A6',
+  /** Ring track tint for the base calorie norm. */
+  normTrack: '#D5DED6',
   glp1: '#7A5AF8',
 };
 

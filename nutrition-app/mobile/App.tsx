@@ -38,7 +38,7 @@ function Shell() {
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
-        {tab === 'diary' && <DiaryScreen onAdd={() => setTab('scan')} onWorkouts={() => setTab('workouts')} />}
+        {tab === 'diary' && <DiaryScreen onAdd={() => setTab('scan')} onWorkouts={() => setTab('workouts')} onSteps={() => setTab('trackers')} />}
         {tab === 'workouts' && <WorkoutsScreen />}
         {tab === 'scan' && <ScanScreen onDone={() => setTab('diary')} />}
         {tab === 'trackers' && <TrackersScreen />}

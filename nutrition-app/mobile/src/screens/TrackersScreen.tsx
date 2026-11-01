@@ -1,6 +1,6 @@
 /** Habit trackers: water, steps, weight, intermittent fasting, GLP-1 doses. */
 import { Pedometer } from 'expo-sensors';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NUTRITION_CONFIG } from '../../../shared/config';
 import { humanDay, startOfDay } from '../../../shared/date';
@@ -15,6 +15,7 @@ import {
   type InjectionSite,
 } from '../../../shared/glp1';
 import { calcDailyTargets } from '../../../shared/goals';
+import { stepsKcal } from '../../../shared/workouts';
 import { Button, Card, Chip, ProgressBar, Ring, SectionLabel, Title } from '../components/ui';
 import { newId, today, useStore } from '../store';
 import { colors, radius, space } from '../theme';
@@ -73,10 +74,9 @@ function StepsCard() {
   const { state, dispatch } = useStore();
   const t = calcDailyTargets(state.profile!);
   const day = today();
-  const [sensorSteps, setSensorSteps] = useState<number | null>(null);
+  const [fromSensor, setFromSensor] = useState(false);
   const [input, setInput] = useState('');
-  const lastWatch = useRef(0);
-  const manual = state.manualSteps[day] ?? 0;
+  const steps = state.manualSteps[day] ?? 0;
 
   useEffect(() => {
     let sub: { remove: () => void } | undefined;
@@ -85,19 +85,21 @@ function StepsCard() {
       if (Platform.OS === 'web' || !(await Pedometer.isAvailableAsync().catch(() => false))) return;
       const perm = await Pedometer.requestPermissionsAsync().catch(() => null);
       if (!perm?.granted || cancelled) return;
+      // Steps go into the day's log so the diary can count them as burned calories.
+      let base = state.manualSteps[day] ?? 0;
       if (Platform.OS === 'ios') {
-        // iOS keeps a history: read today's total directly.
+        // iOS keeps a history: read today's total directly (keep a higher number typed from a watch).
         const r = await Pedometer.getStepCountAsync(startOfDay(day), new Date()).catch(() => null);
-        if (r && !cancelled) setSensorSteps(r.steps);
-      }
-      // Android has no history API: count live steps while the app is open and add them to today's log.
-      sub = Pedometer.watchStepCount(({ steps }) => {
-        if (Platform.OS === 'ios') {
-          setSensorSteps((s) => (s ?? 0) + steps - lastWatch.current);
-        } else {
-          dispatch({ type: 'setSteps', day, steps: (state.manualSteps[day] ?? 0) + steps - lastWatch.current });
+        if (r && !cancelled) {
+          base = Math.max(base, r.steps);
+          dispatch({ type: 'setSteps', day, steps: base });
+          setFromSensor(true);
         }
-        lastWatch.current = steps;
+      }
+      // Live updates while the app is open (Android has no history API, so this is all it gets).
+      sub = Pedometer.watchStepCount(({ steps: live }) => {
+        dispatch({ type: 'setSteps', day, steps: base + live });
+        setFromSensor(true);
       });
     })();
     return () => {
@@ -107,34 +109,48 @@ function StepsCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day]);
 
-  const steps = sensorSteps ?? manual;
-  const kcal = Math.round(steps * 0.04 * (state.profile!.weightKg / 70));
+  const kcal = stepsKcal(steps, state.profile!.weightKg);
+  const typed = Number(input);
 
   return (
     <Card>
       <SectionLabel>👟 Шаги</SectionLabel>
-      <ProgressBar label={sensorSteps != null ? 'С датчика телефона' : 'Сегодня'} value={steps} target={t.steps} unit="шагов" color={colors.primary} />
-      <Text style={[styles.muted, { marginTop: 4 }]}>≈ {kcal} ккал активности</Text>
-      {sensorSteps == null && (
-        <View style={[styles.row, { marginTop: space(3) }]}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            keyboardType="number-pad"
-            placeholder="Ввести вручную (из часов)"
-            placeholderTextColor={colors.muted}
-            value={input}
-            onChangeText={setInput}
-          />
+      <ProgressBar label={fromSensor ? 'С датчика телефона' : 'Сегодня'} value={steps} target={t.steps} unit="шагов" color={colors.walk} />
+      <Text style={[styles.bold, { marginTop: space(2), color: colors.walk }]}>+{kcal} ккал к норме за ходьбу</Text>
+      <View style={[styles.row, { marginTop: space(3), flexWrap: 'wrap' }]}>
+        {[1000, 2000, 5000].map((v) => (
           <Button
-            label="Сохранить"
-            disabled={!(Number(input) >= 0 && input !== '')}
-            onPress={() => {
-              dispatch({ type: 'setSteps', day, steps: Math.round(Number(input)) });
-              setInput('');
-            }}
+            key={v}
+            label={`+${v.toLocaleString('ru-RU')}`}
+            variant="secondary"
+            color={colors.walk}
+            style={{ flex: 1 }}
+            onPress={() => dispatch({ type: 'setSteps', day, steps: steps + v })}
           />
-        </View>
-      )}
+        ))}
+      </View>
+      <View style={[styles.row, { marginTop: space(3) }]}>
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          keyboardType="number-pad"
+          placeholder="Всего шагов за день (из часов)"
+          placeholderTextColor={colors.muted}
+          value={input}
+          onChangeText={setInput}
+        />
+        <Button
+          label="Сохранить"
+          color={colors.walk}
+          disabled={!(input !== '' && typed >= 0 && typed <= 100000)}
+          onPress={() => {
+            dispatch({ type: 'setSteps', day, steps: Math.round(typed) });
+            setInput('');
+          }}
+        />
+      </View>
+      <Text style={styles.mutedSmall}>
+        Считается обычная ходьба (~100 шагов в минуту). Отдельную прогулку не добавляйте ещё и в «Спорт», чтобы не учесть её дважды.
+      </Text>
     </Card>
   );
 }

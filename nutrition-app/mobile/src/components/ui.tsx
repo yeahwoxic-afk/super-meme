@@ -132,6 +132,83 @@ export function Ring({
   );
 }
 
+export interface RingSegment {
+  value: number;
+  color: string;
+}
+
+/**
+ * Ring whose track is split into coloured segments (what the total is made
+ * of), with a thinner progress arc drawn on top (how much of it is used).
+ * Segments stay visible along the edges of the progress arc.
+ */
+export function SegmentRing({
+  size,
+  stroke,
+  segments,
+  progress,
+  progressColor,
+  children,
+}: {
+  size: number;
+  stroke: number;
+  segments: RingSegment[];
+  /** 0..1 share of the total that is used. */
+  progress: number;
+  progressColor: string;
+  children?: React.ReactNode;
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const total = segments.reduce((a, x) => a + Math.max(0, x.value), 0) || 1;
+  const visible = segments.filter((x) => x.value > 0);
+  const gap = visible.length > 1 ? 3 : 0;
+  const p = Math.max(0, Math.min(1, progress));
+  const inner = Math.max(4, stroke * 0.5);
+  const rot = `rotate(-90 ${size / 2} ${size / 2})`;
+  let offset = 0;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        {visible.map((seg, i) => {
+          const len = (seg.value / total) * c;
+          const dash = Math.max(0, len - gap);
+          const el = (
+            <Circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              stroke={seg.color}
+              strokeWidth={stroke}
+              fill="none"
+              strokeDasharray={`${dash} ${c - dash}`}
+              strokeDashoffset={-offset}
+              transform={rot}
+            />
+          );
+          offset += len;
+          return el;
+        })}
+        {p > 0 && (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            stroke={progressColor}
+            strokeWidth={inner}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={`${c * p} ${c}`}
+            transform={rot}
+          />
+        )}
+      </Svg>
+      {children}
+    </View>
+  );
+}
+
 /** Horizontal progress bar with label "value / target unit". */
 export function ProgressBar({
   label,
