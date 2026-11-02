@@ -49,6 +49,7 @@ type Action =
   | { type: 'setProfile'; profile: UserProfile }
   | { type: 'addEntries'; day: string; entries: FoodEntry[] }
   | { type: 'removeEntry'; day: string; id: string }
+  | { type: 'restoreEntry'; day: string; entry: FoodEntry; index: number }
   | { type: 'addWater'; day: string; ml: number }
   | { type: 'setSteps'; day: string; steps: number }
   | { type: 'addWorkout'; day: string; workout: WorkoutEntry }
@@ -71,6 +72,12 @@ export function reducer(s: AppState, a: Action): AppState {
       return { ...s, entries: { ...s.entries, [a.day]: [...(s.entries[a.day] ?? []), ...a.entries] } };
     case 'removeEntry':
       return { ...s, entries: { ...s.entries, [a.day]: (s.entries[a.day] ?? []).filter((e) => e.id !== a.id) } };
+    case 'restoreEntry': {
+      const list = [...(s.entries[a.day] ?? [])];
+      if (list.some((e) => e.id === a.entry.id)) return s;
+      list.splice(Math.min(Math.max(0, a.index), list.length), 0, a.entry);
+      return { ...s, entries: { ...s.entries, [a.day]: list } };
+    }
     case 'addWater':
       return { ...s, waterMl: { ...s.waterMl, [a.day]: Math.max(0, (s.waterMl[a.day] ?? 0) + a.ml) } };
     case 'setSteps':
