@@ -62,6 +62,9 @@ nutrition-app/
 
 Пересобрать страницу: `cd mobile && node scripts/build-artifact.mjs` (результат будет в `mobile/dist-artifact/nutri-ai.html`).
 
+## Установка на iPhone
+Пошаговая инструкция (MacBook + Xcode + сервер на Render): [INSTALL-iPhone.md](INSTALL-iPhone.md).
+
 ## Запуск
 
 ### Сервер
