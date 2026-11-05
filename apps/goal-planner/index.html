@@ -155,7 +155,7 @@ const ymTitle=ym=>{const[y,m]=ym.split('-').map(Number);return MN[m-1]+' '+y};
 const ymShift=(ym,n)=>{const[y,m]=ym.split('-').map(Number);const d=new Date(y,m-1+n,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)};
 const dayList=(a,b)=>{const r=[];for(let d=a;d<=b;d=addDays(d,1))r.push(d);return r};
 const SPHERE_COLORS=['#64A8FF','#BF7AF0','#FF9F5A','#4FD1C5','#E58FB5','#A3B1FF','#D4C17A'];
-const EXP_CATS=['Депозит','Благое','Гулянки','Агентство','Еда','Транспорт','Жильё','Связь и подписки','Здоровье','Одежда','Остальное'];
+const EXP_CATS=['Обязательные','Депозит','Благое','Гулянки','Агентство','Еда','Транспорт','Жильё','Связь и подписки','Здоровье','Одежда','Остальное'];
 const OTHER='Остальное';
 const INC_CATS=['Клиенты','Зарплата','Подработка','Возврат долга','Остальное'];
 
