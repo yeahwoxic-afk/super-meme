@@ -1,0 +1,992 @@
+<title>Планер целей</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: one mobile-first column (max 760px), fixed bottom tab bar, "+" floating above it; sheets slide up from the bottom. Dark only, per spec. */
+:root{
+  --bg:#0E0E10; --card:#18181B; --raise:#232327; --line:#2E2E33;
+  --fg:#F2F2F5; --mute:#9A9AA3; --acc:#5B8CFF; --on-acc:#0E0E10;
+  --ok:#30D158; --warn:#FFD60A; --bad:#FF453A;
+  --font:'Inter',-apple-system,'SF Pro Text','Roboto',system-ui,sans-serif;
+  --r:14px; --nav-h:64px;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font:15px/1.45 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:8px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom,0px))}
+.wrap.wide{max-width:1180px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:650}
+h3{font-size:15px;font-weight:600}
+.mute{color:var(--mute)}
+.small{font-size:13px}
+.lbl{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:12px}
+.grow{flex:1;min-width:0}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px 10px;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.top .ttl{min-width:0}
+.sync{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--mute);display:inline-block}
+.sync.db i{background:var(--ok)}
+.iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:18px;height:18px}
+.demo{font-size:12px;background:var(--raise);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--mute)}
+.card{background:var(--card);border-radius:var(--r);padding:14px;border:1px solid transparent}
+.card.btn{text-align:left;width:100%;border:1px solid transparent}
+.card.btn:hover{border-color:var(--line)}
+.section{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+.big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.pct{font-weight:750}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.hero .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
+.hero .facts b{display:block;font-size:18px;font-weight:700}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;background:var(--acc)}
+.c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-bad{color:var(--bad)} .c-none{color:var(--mute)}
+.bg-ok{background:var(--ok)!important} .bg-warn{background:var(--warn)!important} .bg-bad{background:var(--bad)!important} .bg-none{background:var(--mute)!important}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--raise);white-space:nowrap}
+.pill .dot{width:7px;height:7px;border-radius:50%}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
+.goals{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:10px}
+.goal .gt{font-weight:600;line-height:1.3}
+.goal .gp{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:550;display:inline-flex;gap:6px;align-items:center}
+.chip.on{background:var(--acc);color:var(--on-acc);border-color:var(--acc)}
+.chip b{font-weight:750}
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.cal .dw{font-size:11px;color:var(--mute);text-align:center;padding-bottom:2px;font-weight:600}
+.cell{background:var(--card);border-radius:10px;min-height:62px;padding:6px;display:flex;flex-direction:column;gap:4px;border:1px solid transparent;text-align:left}
+.cell.empty{background:transparent}
+.cell.today{border-color:var(--acc)}
+.cell .n{font-size:13px;font-weight:650}
+.cell .cnt{font-size:11px;color:var(--mute);margin-top:auto}
+.cell .mini{height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.cell .mini i{display:block;height:100%}
+.cell .ev{width:6px;height:6px;border-radius:50%;background:var(--acc);display:inline-block}
+/* tasks */
+.task{display:flex;gap:10px;align-items:flex-start;background:var(--card);border-radius:12px;padding:10px 12px}
+.task.done .tt{color:var(--mute);text-decoration:line-through}
+.task.cancelled{opacity:.55}
+.tk{width:24px;height:24px;border-radius:7px;border:2px solid var(--mute);background:transparent;flex:none;display:grid;place-items:center;margin-top:1px;padding:0}
+.tk.on{background:var(--ok);border-color:var(--ok)}
+.tk.on::after{content:"";width:10px;height:6px;border-left:2.5px solid var(--on-acc);border-bottom:2.5px solid var(--on-acc);transform:rotate(-45deg) translate(1px,-1px)}
+.tk.part{border-color:var(--acc)}
+.tbody{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left}
+.tt{font-weight:550;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:12px;color:var(--mute);margin-top:3px;align-items:center}
+.flag{color:var(--bad);font-weight:650}
+.time{font-weight:650;color:var(--fg);font-size:13px;min-width:42px}
+.warnbox{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}
+/* week */
+.weekgrid{display:grid;gap:10px;grid-template-columns:1fr}
+@media (min-width:900px){.weekgrid{grid-template-columns:repeat(7,minmax(0,1fr))}.weekgrid.w8{grid-template-columns:repeat(8,minmax(0,1fr))}.weekgrid.w9{grid-template-columns:repeat(9,minmax(0,1fr))}.weekgrid.w10{grid-template-columns:repeat(10,minmax(0,1fr))}}
+.daycol{background:var(--card);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0;border:1px dashed transparent}
+.daycol.over{border-color:var(--acc)}
+.daycol.today{box-shadow:inset 0 0 0 1px var(--acc)}
+.wt{background:var(--raise);border-radius:9px;padding:7px 9px;font-size:13px;display:flex;gap:8px;align-items:flex-start;cursor:grab}
+.wt .tk{width:18px;height:18px;border-radius:5px}
+.wt .tk.on::after{width:8px;height:5px;border-width:0 0 2px 2px}
+.wt.done span{color:var(--mute);text-decoration:line-through}
+/* nav */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--raise);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
+.nav .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--nav-h)}
+.nav button{background:none;border:0;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600}
+.nav button svg{width:22px;height:22px}
+.nav button.on{color:var(--acc)}
+.fab{position:fixed;z-index:21;right:max(18px,calc(env(safe-area-inset-right,0px) + 18px));bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:18px;border:0;background:var(--acc);color:var(--on-acc);display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
+.fab svg{width:26px;height:26px}
+/* sheet */
+#sheet{position:fixed;inset:0;z-index:40}
+#sheet .scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);border:0;width:100%;cursor:default}
+#sheet .panel{position:absolute;left:0;right:0;bottom:0;margin:0 auto;max-width:640px;max-height:92%;overflow:auto;background:var(--raise);border-radius:20px 20px 0 0;padding-block:8px calc(24px + env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));animation:up .22s ease-out}
+@media (prefers-reduced-motion:reduce){#sheet .panel{animation:none}}
+@keyframes up{from{transform:translateY(30px);opacity:.4}to{transform:none;opacity:1}}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:4px auto 12px}
+.sheethead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.x{background:var(--card);border:0;width:34px;height:34px;border-radius:10px;flex:none;font-size:20px;line-height:1;color:var(--mute)}
+form.f{display:flex;flex-direction:column;gap:12px}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld>span{font-size:12px;color:var(--mute);font-weight:600}
+.f input,.f select,.f textarea,.inp{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+.f textarea{min-height:76px;resize:vertical}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.btnp{background:var(--acc);color:var(--on-acc);border:0;border-radius:12px;padding:12px 16px;font-weight:700}
+.btn2{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600}
+.btn2.danger{color:var(--bad)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;background:var(--card);padding:4px;border-radius:12px;margin-bottom:14px;overflow-x:auto}
+.tabs button{flex:1;border:0;background:none;border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600;color:var(--mute);white-space:nowrap}
+.tabs button.on{background:var(--raise);color:var(--fg)}
+.hint{font-size:12px;color:var(--mute)}
+.parsed{display:flex;gap:6px;flex-wrap:wrap}
+.statusset{display:flex;gap:6px;flex-wrap:wrap}
+.stepper{display:inline-flex;align-items:center;gap:2px;background:var(--card);border-radius:9px;border:1px solid var(--line)}
+.stepper button{background:none;border:0;width:28px;height:28px;color:var(--fg);font-weight:700}
+.stepper b{min-width:18px;text-align:center;font-size:13px}
+.tree .key{background:var(--card);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.sub{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line)}
+.checks{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.chk{display:flex;gap:8px;align-items:center;background:none;border:0;padding:3px 0;text-align:left;font-size:13px;color:var(--fg)}
+.chk .tk{width:18px;height:18px;border-radius:5px;margin:0}
+.chk .tk.on::after{width:8px;height:5px;border-width:0 0 2px 2px}
+.chk.on span{color:var(--mute);text-decoration:line-through}
+.ring{position:relative;width:96px;height:96px;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:800;letter-spacing:-.02em}
+.chart{width:100%;height:auto;display:block}
+.evt{display:flex;gap:12px;align-items:center}
+.evt .when{width:54px;flex:none;text-align:center;background:var(--raise);border-radius:10px;padding:6px 0}
+.evt .when b{display:block;font-size:20px;font-weight:800;line-height:1.1}
+.evt .when span{font-size:11px;color:var(--mute)}
+.empty{color:var(--mute);font-size:14px;padding:14px;border:1px dashed var(--line);border-radius:12px;text-align:center}
+.hbar{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:4px 10px;align-items:center}
+.days{display:flex;align-items:flex-end;gap:3px;height:90px}
+.days i{flex:1;background:var(--line);border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.days i u{position:absolute;left:0;right:0;bottom:0;border-radius:3px 3px 0 0;background:var(--acc)}
+.wiz-goal{background:var(--card);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 90px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
+@media (max-width:420px){.big{font-size:38px}.ring{width:84px;height:84px}.hero .facts b{font-size:16px}.cell{min-height:54px;padding:5px}}
+</style>
+
+<div id="app"></div>
+<button class="fab" data-a="add" aria-label="Добавить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+<nav class="nav"><div class="in" id="nav"></div></nav>
+<div id="sheet" hidden><button class="scrim" data-a="close" aria-label="Закрыть"></button><div class="panel" role="dialog" aria-modal="true" id="panel"></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ===================== helpers ===================== */
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pd=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return iso(d)};
+const diff=(a,b)=>Math.round((pd(b)-pd(a))/864e5);
+const dow=s=>(pd(s).getDay()+6)%7;
+const TODAY=iso(new Date());
+const MG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MS=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+const DW=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const DWF=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dShort=s=>pd(s).getDate()+' '+MS[pd(s).getMonth()];
+const dLong=s=>pd(s).getDate()+' '+MG[pd(s).getMonth()];
+const fp=p=>{if(p==null||isNaN(p))return '—';const r=Math.round(p*10)/10;return String(r).replace('.',',')+'%'};
+const fpi=p=>p==null||isNaN(p)?'—':Math.round(p)+'%';
+const plural=(n,a,b,c)=>{n=Math.abs(n)%100;const m=n%10;if(n>10&&n<20)return c;if(m>1&&m<5)return b;if(m===1)return a;return c};
+const STATUS={todo:'Не начато',doing:'В работе',done:'Выполнено',moved:'Перенесено',cancelled:'Отменено'};
+const PRIO={low:'Низкий',normal:'Обычный',high:'Высокий'};
+const IMP={low:'Обычное',normal:'Важное',high:'Критичное'};
+const SPHERE_COLORS=['#64A8FF','#BF7AF0','#FF9F5A','#4FD1C5','#E58FB5','#A3B1FF','#D4C17A'];
+
+/* ===================== example data (Ноябрь 2026 из ТЗ) ===================== */
+function demoState(){
+  const s1='sp_work',s2='sp_sales',s3='sp_brand',s4='sp_health',s5='sp_life';
+  const st=(id,k,title,date,status,extra={})=>Object.assign({id,keyTaskId:k,title,date,time:'',duration:60,priority:'normal',status,moves:0,checks:[],tags:[],doneAt:status==='done'?date:null},extra);
+  return {
+    v:1, demo:true,
+    settings:{dayLimit:8},
+    month:{start:'2026-11-01',end:'2026-11-30',focus:'Новые клиенты и стабильный выпуск Reels'},
+    archive:[{title:'Октябрь 2026',pct:71.4},{title:'Сентябрь 2026',pct:64.0}],
+    spheres:[
+      {id:s1,name:'Работа',color:SPHERE_COLORS[0]},
+      {id:s2,name:'Продажи',color:SPHERE_COLORS[1]},
+      {id:s3,name:'Личный бренд',color:SPHERE_COLORS[2]},
+      {id:s4,name:'Здоровье',color:SPHERE_COLORS[3]},
+      {id:s5,name:'Личное',color:SPHERE_COLORS[4]},
+    ],
+    goals:[
+      {id:'g1',sphereId:s1,title:'Выпустить 20 Reels для клиентов',type:'number',target:20,unit:'Reels',weight:3,deadline:'2026-11-30',status:'active',log:[{date:'2026-11-03',delta:1},{date:'2026-11-04',delta:1},{date:'2026-11-05',delta:2}]},
+      {id:'g2',sphereId:s2,title:'Подписать 2 новых клиента',type:'checklist',target:0,unit:'',weight:3,deadline:'2026-11-29',status:'active',log:[]},
+      {id:'g3',sphereId:s3,title:'Опубликовать 12 постов в блоге',type:'number',target:12,unit:'постов',weight:2,deadline:'2026-11-30',status:'active',log:[{date:'2026-11-02',delta:1},{date:'2026-11-04',delta:1}]},
+      {id:'g4',sphereId:s4,title:'Провести 12 тренировок',type:'number',target:12,unit:'тренировок',weight:1,deadline:'2026-11-30',status:'active',log:[{date:'2026-11-02',delta:1},{date:'2026-11-04',delta:1}]},
+    ],
+    keyTasks:[
+      {id:'k1',goalId:'g2',title:'Собрать базу из 50 лидов',weight:1,week:1,due:'2026-11-08',status:'doing'},
+      {id:'k2',goalId:'g2',title:'Провести 10 встреч',weight:1,week:2,due:'2026-11-22',status:'todo'},
+      {id:'k3',goalId:'g2',title:'Отправить 5 коммерческих предложений',weight:1,week:3,due:'2026-11-22',status:'todo'},
+      {id:'k4',goalId:'g2',title:'Подписать 2 договора',weight:1,week:4,due:'2026-11-29',status:'todo'},
+      {id:'k5',goalId:'g1',title:'Reels недели 1: сценарии, съёмка, монтаж',weight:1,week:1,due:'2026-11-08',status:'doing'},
+      {id:'k6',goalId:'g3',title:'Посты недели 1',weight:1,week:1,due:'2026-11-08',status:'doing'},
+      {id:'k7',goalId:'g4',title:'Тренировки недели 1',weight:1,week:1,due:'2026-11-08',status:'doing'},
+    ],
+    subtasks:[
+      st('t1','k1','Составить список ниш','2026-11-02','done'),
+      st('t2','k1','Найти первые 25 компаний','2026-11-03','done'),
+      st('t3','k1','Найти ещё 25 компаний','2026-11-04','done'),
+      st('t4','k1','Найти контакты лиц, принимающих решение','2026-11-05','doing',{time:'11:00',duration:90,priority:'high',checks:[{id:'c1',text:'LinkedIn',done:false},{id:'c2',text:'Сайты компаний',done:false},{id:'c3',text:'Общие знакомые',done:false}]}),
+      st('t5','k1','Внести лидов в CRM','2026-11-06','todo',{time:'10:00'}),
+      st('t6','k5','Сценарии для 4 Reels','2026-11-02','done'),
+      st('t7','k5','Съёмка 2 Reels','2026-11-04','done',{duration:180}),
+      st('t8','k5','Монтаж 2 Reels','2026-11-05','todo',{time:'14:00',duration:120}),
+      st('t9','k5','Съёмка 3 Reels','2026-11-06','todo',{time:'12:00',duration:180}),
+      st('t10','k5','Монтаж 3 Reels','2026-11-07','todo',{duration:150}),
+      st('t11','k6','Пост: кейс клиента','2026-11-02','done'),
+      st('t12','k6','Пост: 5 ошибок в Reels','2026-11-04','done'),
+      st('t13','k6','Пост: как устроен продакшн','2026-11-06','todo'),
+      st('t14','k6','Обновить шапку блога','2026-11-05','moved',{moves:3,duration:30}),
+      st('t15','k7','Тренировка','2026-11-02','done'),
+      st('t16','k7','Тренировка','2026-11-04','done'),
+      st('t17','k7','Тренировка: силовая','2026-11-05','todo',{time:'07:30'}),
+      st('t18','k7','Тренировка','2026-11-07','todo'),
+      st('t19',null,'Оплатить аренду офиса','2026-11-05','todo',{time:'10:00',duration:15,tags:['финансы']}),
+      st('t20',null,'Разобрать почту','2026-11-05','done',{duration:30}),
+      st('t21',null,'Идея: серия Reels про закулисье',null,'todo'),
+      st('t22',null,'Купить новый микрофон',null,'todo'),
+    ],
+    events:[
+      {id:'e1',title:'Встреча с потенциальным клиентом',date:'2026-11-10',time:'15:00',goalId:'g2',importance:'normal'},
+      {id:'e2',title:'Отчёт клиенту',date:'2026-11-15',time:'12:00',goalId:'g1',importance:'high'},
+      {id:'e3',title:'Ретро месяца',date:'2026-11-30',time:'18:00',goalId:'',importance:'normal'},
+    ],
+  };
+}
+
+/* ===================== state & storage ===================== */
+const LS_KEY='goal-planner-v1';
+let S=null;
+try{const raw=localStorage.getItem(LS_KEY);if(raw)S=JSON.parse(raw)}catch(e){}
+if(!S||!S.month)S=demoState();
+let store={kind:'local',ref:null,busy:false,again:false};
+let saveTimer=null;
+
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(flush,500);
+}
+async function flush(){
+  const json=JSON.stringify(S);
+  try{localStorage.setItem(LS_KEY,json)}catch(e){}
+  if(store.kind!=='db')return;
+  if(store.busy){store.again=true;return}
+  store.busy=true;
+  try{await store.ref.set({json,updatedAt:Date.now()});setSync('db')}
+  catch(e){setSync('err')}
+  store.busy=false;
+  if(store.again){store.again=false;flush()}
+}
+let syncState='local';
+function setSync(k){syncState=k;const el=$('#sync');if(el)el.outerHTML=syncHTML()}
+function syncHTML(){
+  const t={local:'Сохраняется на этом устройстве',db:'Синхронизировано с аккаунтом',err:'Не удалось сохранить в аккаунт',load:'Подключаю аккаунт…'}[syncState];
+  return `<span id="sync" class="sync ${syncState==='db'?'db':''}"><i></i>${t}</span>`;
+}
+async function initStore(){
+  let C=window.claude;
+  for(let i=0;i<10&&!C?.use;i++){await new Promise(r=>setTimeout(r,150));C=window.claude}
+  if(!C?.use)return;
+  setSync('load');
+  try{
+    const [db,user]=await Promise.all([C.use('db'),C.use('user')]);
+    if(!db||!user){setSync('local');return}
+    const id=await user.id();
+    if(!id){setSync('local');return}
+    const ref=db.doc('data/users/'+id+'/planner');
+    const snap=await Promise.race([ref.get(),new Promise((_,rj)=>setTimeout(()=>rj(new Error('timeout')),10000))]);
+    store={kind:'db',ref,busy:false,again:false};
+    if(snap.exists){
+      const d=snap.data();
+      if(d&&typeof d.json==='string'){try{S=JSON.parse(d.json)}catch(e){}}
+      setSync('db');render();renderSheet();
+    }else{ setSync('db'); flush(); }
+  }catch(e){setSync('local')}
+}
+
+/* ===================== calculations ===================== */
+const live=x=>x&&x.status!=='cancelled';
+const isDone=(x,at)=>x.status==='done'&&(!at||!x.doneAt||x.doneAt<=at);
+function wavg(items){let W=0,P=0;for(const[w,p]of items){W+=w;P+=w*p}return W?P/W:0}
+const goalById=id=>S.goals.find(g=>g.id===id);
+const keyById=id=>S.keyTasks.find(k=>k.id===id);
+const subById=id=>S.subtasks.find(s=>s.id===id);
+const sphereById=id=>S.spheres.find(s=>s.id===id)||{name:'Без сферы',color:'#9A9AA3'};
+const subsOf=k=>S.subtasks.filter(s=>s.keyTaskId===k.id&&live(s));
+const keysOf=g=>S.keyTasks.filter(k=>k.goalId===g.id&&live(k));
+const goalOfSub=s=>{const k=s.keyTaskId&&keyById(s.keyTaskId);return k?goalById(k.goalId):null};
+const liveGoals=()=>S.goals.filter(live);
+
+/** Подзадача: 0/100, либо доля отмеченных чек-пунктов. */
+function subPct(s,at){
+  if(isDone(s,at))return 100;
+  const c=s.checks||[];
+  if(!c.length)return 0;
+  return c.filter(k=>k.done&&(!at||!k.doneAt||k.doneAt<=at)).length/c.length*100;
+}
+/** Ключевая задача: среднее подзадач; без подзадач — по статусу. */
+function keyPct(k,at){const ss=subsOf(k);return ss.length?wavg(ss.map(s=>[1,subPct(s,at)])):(isDone(k,at)?100:0)}
+const factOf=(g,at)=>(g.log||[]).filter(e=>!at||e.date<=at).reduce((a,e)=>a+e.delta,0);
+/** Цель: «число» — факт ÷ план (≤100%), «чек-лист» — взвешенное среднее ключевых задач. */
+function goalPct(g,at){
+  if(g.type==='number')return g.target>0?Math.min(100,Math.max(0,factOf(g,at))/g.target*100):0;
+  return wavg(keysOf(g).map(k=>[k.weight||1,keyPct(k,at)]));
+}
+const monthPct=at=>wavg(liveGoals().map(g=>[g.weight||1,goalPct(g,at)]));
+function rangeStat(a,b){
+  const ss=S.subtasks.filter(s=>live(s)&&s.date&&s.date>=a&&s.date<=b);
+  const d=ss.filter(s=>s.status==='done').length;
+  return {n:ss.length,d,p:ss.length?d/ss.length*100:null};
+}
+const monthDays=()=>diff(S.month.start,S.month.end)+1;
+function elapsedPct(){const n=monthDays();const p=Math.min(n,Math.max(0,diff(S.month.start,TODAY)+1));return p/n*100}
+/** Темп: выполненные со сроком до сегодня ÷ все со сроком до сегодня. Для чисел — сравнение с долей прошедших дней. */
+function goalPace(g){
+  if(g.type==='number'){const e=elapsedPct();return e?goalPct(g)/e*100:null}
+  const items=[];
+  for(const k of keysOf(g)){const ss=subsOf(k);if(ss.length)ss.forEach(s=>s.date&&items.push(s));else if(k.due)items.push({status:k.status,date:k.due})}
+  const due=items.filter(x=>x.date<TODAY||(x.date===TODAY&&x.status==='done'));
+  if(!due.length)return null;
+  return due.filter(x=>x.status==='done').length/due.length*100;
+}
+function monthPace(){const e=elapsedPct();return e?monthPct()/e*100:null}
+const paceCls=p=>p==null?'none':p>=90?'ok':p>=70?'warn':'bad';
+const paceText=p=>p==null?'Темп: нет задач со сроком':p>=90?'В графике':p>=70?'Небольшое отставание':'Отставание';
+
+function weeks(){
+  const st=S.month.start,en=S.month.end,r=[];
+  const toMon=(7-dow(st))%7;
+  let fe=toMon===0?addDays(st,6):(toMon<=3?addDays(st,toMon+6):addDays(st,toMon-1));
+  if(fe>en)fe=en;
+  r.push([st,fe]);
+  let a=addDays(fe,1);
+  while(a<=en){let b=addDays(a,6);if(b>en)b=en;r.push([a,b]);a=addDays(b,1)}
+  return r;
+}
+function weekOf(date){const w=weeks();const i=w.findIndex(([a,b])=>date>=a&&date<=b);return i<0?(date<S.month.start?1:w.length):i+1}
+const dayList=(a,b)=>{const r=[];for(let d=a;d<=b;d=addDays(d,1))r.push(d);return r};
+const inMonth=d=>d>=S.month.start&&d<=S.month.end;
+const monthTitle=()=>{const d=pd(S.month.start);return MN[d.getMonth()]+' '+d.getFullYear()};
+
+/* ===================== mutations ===================== */
+function commit(msg){save();render();renderSheet();if(msg)toast(msg)}
+function setSubStatus(s,st){
+  s.status=st;
+  s.doneAt=st==='done'?(s.date&&s.date<TODAY?TODAY:TODAY):null;
+  syncKeyStatus(s.keyTaskId);
+}
+function syncKeyStatus(kid){
+  const k=kid&&keyById(kid);if(!k||k.status==='cancelled')return;
+  const ss=subsOf(k);if(!ss.length)return;
+  const p=keyPct(k);
+  k.status=p>=100?'done':(p>0||ss.some(s=>s.status==='doing'))?'doing':'todo';
+  if(k.status==='done'&&!k.doneAt)k.doneAt=TODAY;if(k.status!=='done')k.doneAt=null;
+}
+function toggleSub(s){setSubStatus(s,s.status==='done'?'todo':'done')}
+function moveSub(s,date){
+  if(!date){s.date=null;return}
+  if(s.date&&date!==s.date){s.moves=(s.moves||0)+1;if(s.status!=='done')s.status='moved'}
+  s.date=date;
+}
+
+/* ===================== UI state ===================== */
+const ROUTES=['month','week','day','goals','analytics','events','inbox'];
+const ui={route:'month',day:inMonth(TODAY)?TODAY:null,week:null,addTab:'task',wiz:null,dragId:null};
+function curDay(){return ui.day||(inMonth(TODAY)?TODAY:S.month.start)}
+function curWeek(){if(ui.week)return Math.min(ui.week,weeks().length);return weekOf(inMonth(TODAY)?TODAY:S.month.start)}
+function readHash(){const h=location.hash.slice(1);ui.route=ROUTES.includes(h)?h:'month'}
+
+/* ===================== components ===================== */
+const I={
+  month:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+  week:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M9 5v15.5M15 5v15.5"/></svg>',
+  day:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg>',
+  analytics:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>',
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
+};
+const bar=(p,cls)=>`<div class="bar"><i class="${cls?'bg-'+cls:''}" style="width:${Math.max(0,Math.min(100,p||0))}%"></i></div>`;
+function ring(p,cls){
+  const r=40,c=2*Math.PI*r,v=Math.max(0,Math.min(100,p||0));
+  const col=cls?`var(--${cls==='none'?'mute':cls})`:'var(--acc)';
+  return `<div class="ring"><svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="${r}" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="48" cy="48" r="${r}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c*v/100} ${c}"/></svg><b>${fpi(p)}</b></div>`;
+}
+function topbar(title,sub){
+  return `<div class="top"><div class="ttl"><h1>${title}</h1>${sub?`<div class="small mute">${sub}</div>`:''}</div>
+  <div class="row">${S.demo?'<span class="demo">Пример</span>':''}<button class="iconbtn" data-a="settings" aria-label="Настройки">${I.gear}</button></div></div>`;
+}
+function taskRow(s,opts={}){
+  const g=goalOfSub(s),k=s.keyTaskId&&keyById(s.keyTaskId);
+  const sp=g?sphereById(g.sphereId):null;
+  const c=s.checks||[];const cd=c.filter(x=>x.done).length;
+  const stuck=(s.moves||0)>=3&&s.status!=='done';
+  const on=s.status==='done';
+  return `<div class="task ${s.status}">
+    <button class="tk ${on?'on':c.length&&cd?'part':''}" data-a="tog" data-id="${s.id}" aria-label="${on?'Снять отметку':'Отметить выполненной'}"></button>
+    <button class="tbody" data-a="task" data-id="${s.id}">
+      <div class="row" style="align-items:baseline">${opts.time&&s.time?`<span class="time">${s.time}</span>`:''}<span class="tt grow">${esc(s.title)}</span></div>
+      <div class="meta">
+        ${g?`<span class="row" style="gap:5px"><span class="dot" style="background:${sp.color}"></span>${esc(g.title)}</span>`:(s.date?'<span>Вне целей</span>':'<span>Входящие</span>')}
+        ${opts.date&&s.date?`<span>${dShort(s.date)}</span>`:''}
+        ${s.duration?`<span>${fmtDur(s.duration)}</span>`:''}
+        ${c.length?`<span>${cd}/${c.length} пунктов</span>`:''}
+        ${s.status!=='todo'&&s.status!=='done'?`<span>${STATUS[s.status]}</span>`:''}
+        ${s.priority==='high'?'<span class="c-warn">Высокий приоритет</span>':''}
+        ${(s.tags||[]).map(t=>`<span>#${esc(t)}</span>`).join('')}
+        ${stuck?`<span class="flag">Застряла · ${s.moves} переноса</span>`:''}
+      </div>
+    </button>
+  </div>`;
+}
+const fmtDur=m=>{m=+m||0;const h=Math.floor(m/60),mm=m%60;return (h?h+' ч':'')+(h&&mm?' ':'')+(mm?mm+' мин':'')||'0 мин'};
+function goalCard(g){
+  const p=goalPct(g),pc=goalPace(g),cls=paceCls(pc),sp=sphereById(g.sphereId);
+  const detail=g.type==='number'?`${factOf(g)} из ${g.target} ${esc(g.unit||'')}`:`${keysOf(g).filter(k=>keyPct(k)>=100).length} из ${keysOf(g).length} ключевых задач`;
+  return `<button class="card btn goal stack" data-a="goal" data-id="${g.id}" style="gap:10px">
+    <div class="row between"><span class="pill"><span class="dot" style="background:${sp.color}"></span>${esc(sp.name)}</span><span class="small mute">вес ${g.weight}</span></div>
+    <div class="gt">${esc(g.title)}</div>
+    <div class="row between" style="align-items:flex-end"><span class="gp c-${cls==='none'?'none':cls}">${fp(p)}</span><span class="small mute" style="text-align:right">${detail}</span></div>
+    ${bar(p,cls)}
+    <div class="small c-${cls}">${paceText(pc)}${pc!=null?' · темп '+fpi(pc):''}</div>
+  </button>`;
+}
+
+/* ===================== screens ===================== */
+function screenMonth(){
+  const mp=monthPct(),pace=monthPace(),cls=paceCls(pace),el=elapsedPct();
+  const n=monthDays(),passed=Math.round(el*n/100);
+  const ws=weeks();
+  let cal=DW.map(d=>`<div class="dw">${d}</div>`).join('');
+  for(let i=0;i<dow(S.month.start);i++)cal+='<div class="cell empty"></div>';
+  for(const d of dayList(S.month.start,S.month.end)){
+    const st=rangeStat(d,d),ev=S.events.some(e=>e.date===d);
+    const c=st.p==null?'':d<=TODAY?paceCls(st.p):'';
+    cal+=`<button class="cell ${d===TODAY?'today':''}" data-a="goday" data-d="${d}" aria-label="${dLong(d)}: ${st.d} из ${st.n}">
+      <div class="row between"><span class="n">${pd(d).getDate()}</span>${ev?'<span class="ev"></span>':''}</div>
+      ${st.n?`<div class="cnt">${st.d}/${st.n}</div><div class="mini"><i class="${c?'bg-'+c:''}" style="width:${st.p}%;${c?'':'background:var(--acc)'}"></i></div>`:''}
+    </button>`;
+  }
+  const inbox=S.subtasks.filter(s=>live(s)&&!s.date&&!s.keyTaskId&&s.status!=='done').length;
+  const upcoming=S.events.filter(e=>e.date>=TODAY).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const stuck=S.subtasks.filter(s=>live(s)&&(s.moves||0)>=3&&s.status!=='done').length;
+  return topbar(monthTitle(),S.month.focus?'Фокус: '+esc(S.month.focus):'')+
+  `<div class="card hero">${ring(mp,cls)}
+     <div class="stack" style="gap:10px;min-width:0">
+       <div><div class="lbl">Месяц выполнен</div><div class="big">${fp(mp)}</div></div>
+       <div class="facts">
+         <div><span class="small mute">Прошло времени</span><b>${fp(el)}</b><span class="small mute">${passed} из ${n} ${plural(n,'дня','дней','дней')}</span></div>
+         <div><span class="small mute">Темп месяца</span><b class="c-${cls}">${paceText(pace)}</b><span class="small mute">${pace!=null?fpi(pace)+' от графика':''}</span></div>
+       </div>
+     </div>
+   </div>
+   <div class="chips" style="margin-top:12px">
+     <button class="chip" data-a="nav" data-r="events">Ключевые события <b>${upcoming.length}</b></button>
+     <button class="chip" data-a="nav" data-r="inbox">Входящие <b>${inbox}</b></button>
+     ${stuck?`<button class="chip" data-a="nav" data-r="analytics"><span class="dot" style="background:var(--bad)"></span>Застряли <b>${stuck}</b></button>`:''}
+     <button class="chip" data-a="wizard">Спланировать новый месяц</button>
+   </div>
+   <div class="section"><div class="row between"><h2>Цели месяца</h2><button class="chip" data-a="add" data-tab="goal">+ Цель</button></div>
+     ${liveGoals().length?`<div class="goals">${liveGoals().map(goalCard).join('')}</div>`:'<div class="empty">Целей пока нет. Начните с мастера: 3–5 целей на месяц.</div>'}
+   </div>
+   <div class="section"><div class="row between"><h2>Календарь</h2><span class="small mute">выполнено / запланировано</span></div>
+     <div class="cal">${cal}</div>
+     <div class="chips">${ws.map((w,i)=>{const s=rangeStat(w[0],w[1]);return `<button class="chip" data-a="goweek" data-w="${i+1}">Неделя ${i+1} · ${pd(w[0]).getDate()}–${dShort(w[1])} <b>${fpi(s.p)}</b></button>`}).join('')}</div>
+   </div>
+   ${upcoming.length?`<div class="section"><h2>Ближайшие события</h2>${upcoming.slice(0,3).map(eventRow).join('')}</div>`:''}`;
+}
+
+function screenWeek(){
+  const ws=weeks(),wi=curWeek(),[a,b]=ws[wi-1];
+  const st=rangeStat(a,b);
+  const keys=S.keyTasks.filter(k=>live(k)&&k.week===wi);
+  const days=dayList(a,b);
+  const cols=days.map(d=>{
+    const ts=S.subtasks.filter(s=>s.date===d&&live(s)).sort((x,y)=>(x.time||'99').localeCompare(y.time||'99'));
+    const ds=rangeStat(d,d);
+    return `<div class="daycol ${d===TODAY?'today':''}" data-drop="${d}">
+      <button class="row between" data-a="goday" data-d="${d}" style="background:none;border:0;padding:0;text-align:left"><span><b>${DW[dow(d)]}</b> <span class="mute">${dShort(d)}</span></span><span class="small ${ds.p==null?'mute':''}">${fpi(ds.p)}</span></button>
+      ${ts.map(s=>`<div class="wt ${s.status==='done'?'done':''}" draggable="true" data-drag="${s.id}"><button class="tk ${s.status==='done'?'on':''}" data-a="tog" data-id="${s.id}" aria-label="Отметить"></button><span class="grow" data-a="task" data-id="${s.id}" style="cursor:pointer">${s.time?`<b>${s.time}</b> `:''}${esc(s.title)}${(s.moves||0)>=3&&s.status!=='done'?' <span class="flag">!</span>':''}</span></div>`).join('')||'<span class="small mute">Свободно</span>'}
+      <button class="chip" data-a="add" data-tab="task" data-d="${d}" style="justify-content:center">+ задача</button>
+    </div>`}).join('');
+  return topbar('Неделя '+wi,`${dLong(a)} — ${dLong(b)}`)+
+  `<div class="row between" style="margin-bottom:12px">
+     <button class="iconbtn" data-a="wk" data-n="-1" aria-label="Предыдущая неделя" ${wi<=1?'disabled':''}>${I.left}</button>
+     <div style="text-align:center"><div class="big" style="font-size:34px">${fp(st.p)}</div><div class="small mute">выполнено ${st.d} из ${st.n} подзадач</div></div>
+     <button class="iconbtn" data-a="wk" data-n="1" aria-label="Следующая неделя" ${wi>=ws.length?'disabled':''}>${I.right}</button>
+   </div>
+   <div class="section" style="margin-top:6px"><div class="row between"><h2>Ключевые задачи недели</h2><button class="chip" data-a="add" data-tab="key" data-w="${wi}">+ Ключевая</button></div>
+     ${keys.length?keys.map(k=>{const g=goalById(k.goalId),p=keyPct(k);return `<button class="card btn" data-a="goal" data-id="${g.id}" style="padding:12px"><div class="row between"><span class="tt grow">${esc(k.title)}</span><b class="pct">${fpi(p)}</b></div><div class="meta"><span class="row" style="gap:5px"><span class="dot" style="background:${sphereById(g.sphereId).color}"></span>${esc(g.title)}</span>${k.due?`<span>срок ${dShort(k.due)}</span>`:''}</div><div style="margin-top:8px">${bar(p)}</div></button>`}).join(''):'<div class="empty">На эту неделю ключевых задач нет.</div>'}
+   </div>
+   <div class="section"><div class="row between"><h2>По дням</h2><span class="small mute">перетащите задачу на другой день</span></div>
+     <div class="weekgrid ${days.length>7?'w'+days.length:''}">${cols}</div>
+   </div>`;
+}
+
+function screenDay(){
+  const d=curDay();
+  const ts=S.subtasks.filter(s=>s.date===d).sort((x,y)=>(x.time||'99').localeCompare(y.time||'99'));
+  const liveTs=ts.filter(live);
+  const st=rangeStat(d,d);
+  const inGoal=ts.filter(s=>s.keyTaskId),out=ts.filter(s=>!s.keyTaskId);
+  const load=liveTs.reduce((a,s)=>a+(+s.duration||0),0),lim=(S.settings?.dayLimit||8)*60;
+  const evs=S.events.filter(e=>e.date===d);
+  const label=d===TODAY?'Сегодня':d===addDays(TODAY,1)?'Завтра':d===addDays(TODAY,-1)?'Вчера':DWF[dow(d)];
+  return topbar(label,`${DWF[dow(d)]}, ${dLong(d)} · неделя ${weekOf(d)}`)+
+  `<div class="row between" style="margin-bottom:12px">
+     <button class="iconbtn" data-a="dy" data-n="-1" aria-label="Предыдущий день">${I.left}</button>
+     <div style="text-align:center"><div class="big" style="font-size:34px" >${fp(st.p)}</div><div class="small mute">выполнено ${st.d} из ${st.n}</div></div>
+     <button class="iconbtn" data-a="dy" data-n="1" aria-label="Следующий день">${I.right}</button>
+   </div>
+   <div class="warnbox row between" style="${load>lim?'border-color:var(--bad)':''}"><span>Нагрузка дня: <b>${fmtDur(load)}</b> из ${S.settings?.dayLimit||8} ч</span>${load>lim?'<span class="c-bad small" style="font-weight:650">Перегруз — перенесите что-то</span>':`<span class="small mute">${fpi(load/lim*100)}</span>`}</div>
+   ${evs.length?`<div class="section"><h2>События дня</h2>${evs.map(eventRow).join('')}</div>`:''}
+   <div class="section"><div class="row between"><h2>Задачи по целям</h2><button class="chip" data-a="add" data-tab="task" data-d="${d}">+ Задача</button></div>
+     ${inGoal.length?inGoal.map(s=>taskRow(s,{time:true})).join(''):'<div class="empty">На этот день задач по целям нет.</div>'}
+   </div>
+   <div class="section"><div class="row between"><h2>Вне целей</h2><span class="small mute">не влияют на % целей, но входят в % дня</span></div>
+     ${out.length?out.map(s=>taskRow(s,{time:true})).join(''):'<div class="empty">Пусто — всё время ушло на цели.</div>'}
+   </div>
+   ${liveTs.some(s=>s.status!=='done')&&d<=TODAY?`<div class="section"><button class="btn2" data-a="carry" data-d="${d}">Перенести незавершённое на завтра</button></div>`:''}`;
+}
+
+function screenGoals(){
+  const by=S.spheres.map(sp=>({sp,gs:S.goals.filter(g=>g.sphereId===sp.id)})).filter(x=>x.gs.length);
+  return topbar('Цели',monthTitle()+' · '+liveGoals().length+' '+plural(liveGoals().length,'цель','цели','целей'))+
+  `<div class="btnrow"><button class="btnp" data-a="add" data-tab="goal">Добавить цель</button><button class="btn2" data-a="wizard">Мастер нового месяца</button></div>
+  ${by.map(({sp,gs})=>`<div class="section"><div class="row"><span class="dot" style="background:${sp.color}"></span><h2>${esc(sp.name)}</h2><span class="small mute">${fp(wavg(gs.filter(live).map(g=>[g.weight,goalPct(g)])))}</span></div><div class="goals">${gs.map(g=>g.status==='cancelled'?`<div class="card mute">${esc(g.title)} · отменена</div>`:goalCard(g)).join('')}</div></div>`).join('')||'<div class="empty" style="margin-top:16px">Целей пока нет.</div>'}
+  <div class="section"><h3 class="mute">Как считается процент</h3><div class="small mute" style="max-width:62ch">Подзадача — 0 или 100%, либо доля отмеченных пунктов. Ключевая задача — среднее подзадач. Цель-чек-лист — взвешенное среднее ключевых задач (вес 1–5). Цель-число — факт ÷ план. Месяц — взвешенное среднее целей. Отменённое не учитывается.</div></div>`;
+}
+
+function eventRow(e){
+  const g=e.goalId&&goalById(e.goalId),left=diff(TODAY,e.date);
+  const cnt=left===0?'сегодня':left===1?'завтра':left>0?`через ${left} ${plural(left,'день','дня','дней')}`:`${-left} ${plural(-left,'день','дня','дней')} назад`;
+  return `<button class="card btn evt" data-a="event" data-id="${e.id}">
+    <div class="when"><b>${pd(e.date).getDate()}</b><span>${MS[pd(e.date).getMonth()]}</span></div>
+    <div class="grow"><div class="tt">${esc(e.title)}</div><div class="meta"><span class="${left>=0&&left<=1?'c-warn':''}" style="font-weight:600">${cnt}</span>${e.time?`<span>${e.time}</span>`:''}${e.importance==='high'?'<span class="c-bad">Критичное</span>':''}${g?`<span class="row" style="gap:5px"><span class="dot" style="background:${sphereById(g.sphereId).color}"></span>${esc(g.title)}</span>`:''}</div></div>
+  </button>`;
+}
+function screenEvents(){
+  const evs=[...S.events].sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const fut=evs.filter(e=>e.date>=TODAY),past=evs.filter(e=>e.date<TODAY);
+  return topbar('Ключевые события',monthTitle())+
+  `<button class="btnp" data-a="add" data-tab="event">Добавить событие</button>
+  <div class="section"><h2>Впереди</h2>${fut.map(eventRow).join('')||'<div class="empty">Нет предстоящих событий.</div>'}</div>
+  ${past.length?`<div class="section"><h2 class="mute">Прошли</h2>${past.map(eventRow).join('')}</div>`:''}`;
+}
+function screenInbox(){
+  const items=S.subtasks.filter(s=>live(s)&&!s.date&&!s.keyTaskId&&s.status!=='done');
+  return topbar('Входящие','Задачи без даты и цели, записанные на ходу')+
+  `<form class="f" data-f="inbox" style="flex-direction:row"><input id="inbox-q" name="q" placeholder="Записать мысль или задачу…" autocomplete="off" required><button class="btnp" type="submit">Добавить</button></form>
+  <div class="section">${items.length?items.map(s=>`<div class="card stack" style="gap:10px"><div class="tt">${esc(s.title)}</div><div class="btnrow"><button class="btn2" data-a="assign" data-id="${s.id}">Привязать к цели</button><button class="btn2" data-a="move" data-id="${s.id}">Назначить дату</button><button class="btn2 danger" data-a="delsub" data-id="${s.id}">Удалить</button></div></div>`).join(''):'<div class="empty">Входящие разобраны.</div>'}</div>`;
+}
+
+function screenAnalytics(){
+  const gs=liveGoals();
+  const sps=S.spheres.map(sp=>({sp,gs:gs.filter(g=>g.sphereId===sp.id)})).filter(x=>x.gs.length);
+  const all=S.subtasks.filter(s=>s.date&&inMonth(s.date));
+  const cnt=k=>all.filter(s=>s.status===k).length;
+  const movedTotal=all.reduce((a,s)=>a+(s.moves||0),0);
+  const stuck=S.subtasks.filter(s=>live(s)&&(s.moves||0)>=3&&s.status!=='done');
+  const days=dayList(S.month.start,S.month.end);
+  const months=[...(S.archive||[]).slice().reverse(),{title:monthTitle()+' (сейчас)',pct:monthPct()}];
+  return topbar('Аналитика',monthTitle())+
+  `<div class="section" style="margin-top:4px"><h2>Прогресс по целям</h2><div class="card hbar">${gs.map(g=>{const p=goalPct(g),c=paceCls(goalPace(g));return `<div><div class="small" style="margin-bottom:5px">${esc(g.title)}</div>${bar(p,c)}</div><b class="pct" style="text-align:right">${fpi(p)}</b>`}).join('')}</div></div>
+  <div class="section"><h2>По сферам</h2><div class="card hbar">${sps.map(({sp,gs})=>{const p=wavg(gs.map(g=>[g.weight,goalPct(g)]));return `<div><div class="small row" style="margin-bottom:5px;gap:6px"><span class="dot" style="background:${sp.color}"></span>${esc(sp.name)}</div><div class="bar"><i style="width:${p}%;background:${sp.color}"></i></div></div><b class="pct" style="text-align:right">${fpi(p)}</b>`}).join('')}</div></div>
+  <div class="section"><h2>Задачи месяца</h2><div class="three">
+    <div class="card"><div class="small mute">Выполнено</div><div class="gp pct c-ok" style="font-size:26px">${cnt('done')}</div></div>
+    <div class="card"><div class="small mute">Переносов</div><div class="gp pct c-warn" style="font-size:26px">${movedTotal}</div></div>
+    <div class="card"><div class="small mute">Отменено</div><div class="gp pct" style="font-size:26px">${cnt('cancelled')}</div></div>
+  </div>
+  <div class="card"><div class="row between" style="margin-bottom:8px"><span class="small mute">Выполнение по дням</span><span class="small mute">${dShort(S.month.start)} — ${dShort(S.month.end)}</span></div><div class="days">${days.map(d=>{const s=rangeStat(d,d);return `<i title="${dShort(d)}: ${s.d}/${s.n}" style="height:${s.n?100:4}%;${d===TODAY?'outline:1px solid var(--acc)':''}"><u style="height:${s.p||0}%"></u></i>`}).join('')}</div></div></div>
+  <div class="section"><h2>Застрявшие задачи</h2>${stuck.length?stuck.map(s=>taskRow(s,{date:true})).join(''):'<div class="empty">Застрявших задач нет.</div>'}</div>
+  <div class="section"><h2>Сравнение месяцев</h2><div class="card hbar">${months.map(m=>`<div><div class="small" style="margin-bottom:5px">${esc(m.title)}</div>${bar(m.pct)}</div><b class="pct" style="text-align:right">${fpi(m.pct)}</b>`).join('')}</div></div>`;
+}
+
+/* ===================== sheets ===================== */
+let stack=[];
+function openSheet(fn){stack.push(fn);renderSheet();const p=$('#panel');p.scrollTop=0;setTimeout(()=>{const f=p.querySelector('[autofocus]');if(f)f.focus()},60)}
+function closeSheet(){stack.pop();renderSheet()}
+function closeAll(){stack=[];renderSheet()}
+function renderSheet(){
+  const sh=$('#sheet');
+  if(!stack.length){sh.hidden=true;return}
+  const html=stack[stack.length-1]();
+  if(html==null){stack.pop();return renderSheet()}
+  const p=$('#panel'),y=p.scrollTop;
+  p.innerHTML='<div class="grab"></div>'+html;sh.hidden=false;p.scrollTop=y;
+}
+const head=(t,sub)=>`<div class="sheethead"><div class="grow"><h2>${t}</h2>${sub?`<div class="small mute" style="margin-top:3px">${sub}</div>`:''}</div><button class="x" data-a="close" aria-label="Закрыть">×</button></div>`;
+
+function linkOptions(sel){
+  let o=`<option value="" ${sel===''?'selected':''}>Вне целей (на дату)</option><option value="inbox" ${sel==='inbox'?'selected':''}>Входящие (без даты)</option>`;
+  for(const g of liveGoals()){const ks=keysOf(g);if(!ks.length)continue;o+=`<optgroup label="${esc(g.title)}">${ks.map(k=>`<option value="${k.id}" ${sel===k.id?'selected':''}>${esc(k.title)}</option>`).join('')}</optgroup>`}
+  return o;
+}
+const goalOptions=(sel,none)=>(none?`<option value="">${none}</option>`:'')+liveGoals().map(g=>`<option value="${g.id}" ${sel===g.id?'selected':''}>${esc(g.title)}</option>`).join('');
+const sphereOptions=sel=>S.spheres.map(s=>`<option value="${s.id}" ${sel===s.id?'selected':''}>${esc(s.name)}</option>`).join('');
+const weekOptions=sel=>weeks().map((w,i)=>`<option value="${i+1}" ${+sel===i+1?'selected':''}>Неделя ${i+1} · ${pd(w[0]).getDate()}–${dShort(w[1])}</option>`).join('');
+const opts=(obj,sel)=>Object.entries(obj).map(([k,v])=>`<option value="${k}" ${sel===k?'selected':''}>${v}</option>`).join('');
+
+function taskForm(s,pre={}){
+  const isNew=!s;s=s||{title:'',date:pre.date??curDay(),time:'',duration:30,priority:'normal',keyTaskId:pre.keyTaskId||null,checks:[]};
+  const link=s.keyTaskId||(s.date?'':'inbox');
+  return `<form class="f" data-f="task" data-id="${isNew?'':s.id}">
+    ${isNew?`<label class="fld"><span>Быстрый ввод</span><input id="tf-quick" name="quick" placeholder="Созвон с клиентом пт 15:00 #продажи" autocomplete="off" autofocus></label><div class="parsed" id="parsed"><span class="hint">Дата, время и тег распознаются автоматически: сегодня, завтра, пн…вс, 12.11, 15:00, #сфера</span></div>`:''}
+    <label class="fld"><span>Название</span><input id="tf-title" name="title" value="${esc(s.title)}" required ${isNew?'':'autofocus'}></label>
+    <label class="fld"><span>Цель и ключевая задача</span><select id="tf-link" name="link">${linkOptions(link)}</select></label>
+    <div class="two"><label class="fld"><span>Дата</span><input id="tf-date" type="date" name="date" value="${s.date||''}"></label><label class="fld"><span>Время</span><input id="tf-time" type="time" name="time" value="${s.time||''}"></label></div>
+    <div class="two"><label class="fld"><span>Длительность, мин</span><input id="tf-dur" type="number" min="0" step="5" name="duration" value="${s.duration||0}"></label><label class="fld"><span>Приоритет</span><select id="tf-prio" name="priority">${opts(PRIO,s.priority||'normal')}</select></label></div>
+    ${isNew?'<label class="fld"><span>Чек-пункты (каждый с новой строки)</span><textarea id="tf-checks" name="checks" placeholder="Необязательно"></textarea></label>':''}
+    <input type="hidden" name="tags" id="tf-tags" value="${esc((s.tags||[]).join(','))}">
+    <button class="btnp" type="submit">${isNew?'Добавить задачу':'Сохранить'}</button>
+  </form>`;
+}
+function keyForm(k,pre={}){
+  const isNew=!k;k=k||{goalId:pre.goalId||liveGoals().find(g=>g.type==='checklist')?.id||liveGoals()[0]?.id,title:'',weight:1,week:pre.week||curWeek(),due:''};
+  if(!liveGoals().length)return '<div class="empty">Сначала добавьте цель.</div>';
+  return `<form class="f" data-f="key" data-id="${isNew?'':k.id}">
+    <label class="fld"><span>Цель</span><select id="kf-goal" name="goalId">${goalOptions(k.goalId)}</select></label>
+    <label class="fld"><span>Ключевая задача</span><input id="kf-title" name="title" value="${esc(k.title)}" placeholder="Крупный шаг на 1–2 недели" required autofocus></label>
+    <div class="three"><label class="fld"><span>Вес 1–5</span><input id="kf-w" type="number" min="1" max="5" name="weight" value="${k.weight}"></label><label class="fld" style="grid-column:span 2"><span>Неделя</span><select id="kf-week" name="week">${weekOptions(k.week)}</select></label></div>
+    <label class="fld"><span>Срок</span><input id="kf-due" type="date" name="due" value="${k.due||''}"></label>
+    <button class="btnp" type="submit">${isNew?'Добавить ключевую задачу':'Сохранить'}</button>
+  </form>`;
+}
+function goalForm(g){
+  const isNew=!g;g=g||{sphereId:S.spheres[0]?.id,title:'',type:'checklist',target:10,unit:'',weight:1,deadline:S.month.end};
+  return `<form class="f" data-f="goal" data-id="${isNew?'':g.id}">
+    <label class="fld"><span>Измеримый результат к концу месяца</span><input id="gf-title" name="title" value="${esc(g.title)}" placeholder="Например: подписать 2 новых клиента" required autofocus></label>
+    <div class="two"><label class="fld"><span>Сфера</span><select id="gf-sphere" name="sphereId">${sphereOptions(g.sphereId)}</select></label><label class="fld"><span>Тип</span><select id="gf-type" name="type">${opts({checklist:'Чек-лист',number:'Число'},g.type)}</select></label></div>
+    <div class="three"><label class="fld"><span>План (для числа)</span><input id="gf-target" type="number" min="0" name="target" value="${g.target||0}"></label><label class="fld"><span>Единица</span><input id="gf-unit" name="unit" value="${esc(g.unit||'')}" placeholder="Reels"></label><label class="fld"><span>Вес 1–5</span><input id="gf-w" type="number" min="1" max="5" name="weight" value="${g.weight}"></label></div>
+    <label class="fld"><span>Дедлайн</span><input id="gf-dl" type="date" name="deadline" value="${g.deadline||''}"></label>
+    <button class="btnp" type="submit">${isNew?'Добавить цель':'Сохранить'}</button>
+  </form>`;
+}
+function eventForm(e,pre={}){
+  const isNew=!e;e=e||{title:'',date:pre.date||curDay(),time:'',goalId:'',importance:'normal'};
+  return `<form class="f" data-f="event" data-id="${isNew?'':e.id}">
+    <label class="fld"><span>Событие</span><input id="ef-title" name="title" value="${esc(e.title)}" placeholder="Запуск, встреча, дедлайн клиента, оплата" required autofocus></label>
+    <div class="two"><label class="fld"><span>Дата</span><input id="ef-date" type="date" name="date" value="${e.date}" required></label><label class="fld"><span>Время</span><input id="ef-time" type="time" name="time" value="${e.time||''}"></label></div>
+    <div class="two"><label class="fld"><span>Связанная цель</span><select id="ef-goal" name="goalId">${goalOptions(e.goalId,'Без цели')}</select></label><label class="fld"><span>Важность</span><select id="ef-imp" name="importance">${opts(IMP,e.importance)}</select></label></div>
+    <button class="btnp" type="submit">${isNew?'Добавить событие':'Сохранить'}</button>
+  </form>`;
+}
+function addSheet(){
+  const t=ui.addTab,pre=ui.addPre||{};
+  const tabs={task:'Задача',key:'Ключевая',goal:'Цель',event:'Событие'};
+  return head('Добавить')+`<div class="tabs">${Object.entries(tabs).map(([k,v])=>`<button class="${t===k?'on':''}" data-a="tab" data-t="${k}">${v}</button>`).join('')}</div>`+
+    (t==='task'?taskForm(null,pre):t==='key'?keyForm(null,pre):t==='goal'?goalForm(null):eventForm(null,pre));
+}
+function taskSheet(id){return()=>{
+  const s=subById(id);if(!s)return null;
+  const g=goalOfSub(s),k=s.keyTaskId&&keyById(s.keyTaskId);
+  const p=subPct(s);
+  return head(esc(s.title),g?`${esc(g.title)} → ${esc(k.title)}`:(s.date?'Вне целей':'Входящие'))+
+  `<div class="stack">
+    <div class="row between"><span class="mute small">${s.date?DWF[dow(s.date)]+', '+dLong(s.date):'Без даты'}${s.time?' · '+s.time:''}${s.duration?' · '+fmtDur(s.duration):''}</span><b class="pct" style="font-size:20px">${fpi(p)}</b></div>
+    ${(s.moves||0)>=3&&s.status!=='done'?`<div class="warnbox" style="border-color:var(--bad)"><b class="c-bad">Застряла.</b> Задачу переносили ${s.moves} раза. Разбейте её на шаги поменьше, делегируйте или отмените.</div>`:''}
+    <div><div class="lbl" style="margin-bottom:6px">Статус</div><div class="statusset">${Object.entries(STATUS).map(([k,v])=>`<button class="chip ${s.status===k?'on':''}" data-a="status" data-id="${s.id}" data-s="${k}">${v}</button>`).join('')}</div></div>
+    <div><div class="lbl" style="margin-bottom:6px">Чек-пункты</div>
+      <div class="checks">${(s.checks||[]).map(c=>`<button class="chk ${c.done?'on':''}" data-a="check" data-id="${s.id}" data-c="${c.id}"><span class="tk ${c.done?'on':''}"></span><span>${esc(c.text)}</span></button>`).join('')||'<span class="small mute">Пунктов нет — задача считается как 0 или 100%.</span>'}</div>
+      <form class="f" data-f="check" data-id="${s.id}" style="flex-direction:row;margin-top:8px"><input id="ck-new" name="text" placeholder="Новый пункт" autocomplete="off" required><button class="btn2" type="submit">Добавить</button></form>
+    </div>
+    <div class="btnrow"><button class="btn2" data-a="move" data-id="${s.id}">Перенести</button><button class="btn2" data-a="edittask" data-id="${s.id}">Изменить</button><button class="btn2 danger" data-a="delsub" data-id="${s.id}">Удалить</button></div>
+  </div>`}}
+function moveSheet(id){return()=>{
+  const s=subById(id);if(!s)return null;
+  const base=s.date&&s.date>=TODAY?s.date:TODAY;
+  return head('Перенести',esc(s.title))+`<div class="stack">
+    <div class="btnrow"><button class="btn2" data-a="moveto" data-id="${id}" data-d="${addDays(TODAY,1)}">Завтра · ${dShort(addDays(TODAY,1))}</button><button class="btn2" data-a="moveto" data-id="${id}" data-d="${addDays(base,7)}">Через неделю · ${dShort(addDays(base,7))}</button>${s.date?`<button class="btn2" data-a="moveto" data-id="${id}" data-d="">Во входящие</button>`:''}</div>
+    <form class="f" data-f="move" data-id="${id}" style="flex-direction:row"><input id="mv-date" type="date" name="date" value="${s.date||TODAY}" required><button class="btnp" type="submit">Перенести</button></form>
+    <div class="hint">После третьего переноса задача получает флаг «Застряла».</div></div>`}}
+function assignSheet(id){return()=>{
+  const s=subById(id);if(!s)return null;
+  return head('Привязать к цели',esc(s.title))+`<form class="f" data-f="assign" data-id="${id}">
+    <label class="fld"><span>Ключевая задача</span><select id="as-link" name="link">${linkOptions(liveGoals().length?keysOf(liveGoals()[0])[0]?.id||'':'')}</select></label>
+    <label class="fld"><span>Дата</span><input id="as-date" type="date" name="date" value="${curDay()}"></label>
+    <button class="btnp" type="submit">Привязать</button></form>`}}
+
+function chartSVG(g){
+  const days=dayList(S.month.start,S.month.end),n=days.length,W=320,H=130,L=34,R=8,T=10,B=22;
+  const x=i=>L+(W-L-R)*i/(n-1),y=p=>T+(H-T-B)*(1-p/100);
+  const until=days.filter(d=>d<=TODAY);
+  const pts=until.map((d,i)=>`${x(i).toFixed(1)},${y(goalPct(g,d)).toFixed(1)}`).join(' ');
+  const last=until.length?until.length-1:-1;
+  const lp=last>=0?goalPct(g,until[last]):0;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="График прогресса цели по дням">
+    ${[0,50,100].map(p=>`<line x1="${L}" x2="${W-R}" y1="${y(p)}" y2="${y(p)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y(p)+4}" fill="var(--mute)" font-size="10" text-anchor="end">${p}%</text>`).join('')}
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(n-1)}" y2="${y(100)}" stroke="var(--mute)" stroke-width="1" stroke-dasharray="3 4"/>
+    ${pts?`<polyline points="${pts}" fill="none" stroke="var(--acc)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${x(last)}" cy="${y(lp)}" r="4" fill="var(--acc)"/>`:''}
+    <text x="${L}" y="${H-6}" fill="var(--mute)" font-size="10">${dShort(days[0])}</text>
+    <text x="${W-R}" y="${H-6}" fill="var(--mute)" font-size="10" text-anchor="end">${dShort(days[n-1])}</text>
+  </svg><div class="row small mute" style="gap:14px;margin-top:4px"><span class="row" style="gap:6px"><i style="width:14px;height:2px;background:var(--acc);display:inline-block"></i>прогресс</span><span class="row" style="gap:6px"><i style="width:14px;border-top:1px dashed var(--mute);display:inline-block"></i>равномерный план</span></div>`;
+}
+function goalSheet(id){return()=>{
+  const g=goalById(id);if(!g)return null;
+  const p=goalPct(g),pc=goalPace(g),cls=paceCls(pc),sp=sphereById(g.sphereId);
+  const keys=S.keyTasks.filter(k=>k.goalId===g.id);
+  return head(esc(g.title),`<span class="row" style="gap:6px;display:inline-flex"><span class="dot" style="background:${sp.color}"></span>${esc(sp.name)} · ${g.type==='number'?'Число':'Чек-лист'} · вес ${g.weight}${g.deadline?' · до '+dShort(g.deadline):''}</span>`)+
+  `<div class="stack">
+    <div class="hero card" style="background:var(--card)">${ring(p,cls)}<div class="stack" style="gap:6px"><div class="c-${cls}" style="font-weight:650">${paceText(pc)}${pc!=null?' · '+fpi(pc):''}</div>
+      ${g.type==='number'?`<div class="row" style="flex-wrap:wrap"><span>Факт: <b style="font-size:20px">${factOf(g)}</b> из ${g.target} ${esc(g.unit||'')}</span></div><div class="btnrow"><button class="btn2" data-a="fact" data-id="${g.id}" data-n="-1" aria-label="Минус один">−1</button><button class="btnp" data-a="fact" data-id="${g.id}" data-n="1">+1 ${esc(g.unit||'')}</button></div>`:`<div class="small mute">Процент собирается из ключевых задач с учётом веса.</div>`}
+      <div class="row small mute" style="gap:8px">Вес цели <span class="stepper"><button data-a="gw" data-id="${g.id}" data-n="-1" aria-label="Уменьшить вес">−</button><b>${g.weight}</b><button data-a="gw" data-id="${g.id}" data-n="1" aria-label="Увеличить вес">+</button></span></div>
+    </div></div>
+    <div class="card" style="background:var(--card)">${chartSVG(g)}</div>
+    <div class="row between"><h3>Ключевые задачи</h3><button class="chip" data-a="add" data-tab="key" data-g="${g.id}">+ Ключевая</button></div>
+    <div class="tree stack" style="gap:8px">${keys.length?keys.map(k=>{
+      const ss=S.subtasks.filter(s=>s.keyTaskId===k.id).sort((a,b)=>(a.date||'z').localeCompare(b.date||'z'));
+      const kp=keyPct(k),canc=k.status==='cancelled';
+      return `<div class="key" style="${canc?'opacity:.55':''}">
+        <div class="row between" style="align-items:flex-start">
+          ${!ss.filter(live).length&&!canc?`<button class="tk ${k.status==='done'?'on':''}" data-a="keytog" data-id="${k.id}" aria-label="Отметить ключевую задачу"></button>`:''}
+          <div class="grow"><div class="tt">${esc(k.title)}</div><div class="meta"><span>Неделя ${k.week}</span>${k.due?`<span>срок ${dShort(k.due)}</span>`:''}<span>${STATUS[k.status]||''}</span></div></div>
+          <b class="pct" style="font-size:18px">${canc?'—':fpi(kp)}</b>
+        </div>
+        ${canc?'':bar(kp)}
+        ${ss.map(s=>`<div class="sub"><button class="tk ${s.status==='done'?'on':''}" data-a="tog" data-id="${s.id}" aria-label="Отметить"></button><button class="tbody" data-a="task" data-id="${s.id}"><div class="tt small" style="${s.status==='done'?'color:var(--mute);text-decoration:line-through':''}${s.status==='cancelled'?';opacity:.5':''}">${esc(s.title)}</div><div class="meta">${s.date?`<span>${dShort(s.date)}</span>`:''}${(s.checks||[]).length?`<span>${(s.checks||[]).filter(c=>c.done).length}/${s.checks.length} пунктов</span>`:''}${s.status!=='todo'&&s.status!=='done'?`<span>${STATUS[s.status]}</span>`:''}${(s.moves||0)>=3&&s.status!=='done'?'<span class="flag">Застряла</span>':''}</div></button><span class="small" style="font-weight:650">${s.status==='cancelled'?'—':fpi(subPct(s))}</span></div>`).join('')}
+        <div class="row between" style="flex-wrap:wrap">
+          <span class="row small mute" style="gap:8px">Вес <span class="stepper"><button data-a="kw" data-id="${k.id}" data-n="-1" aria-label="Уменьшить вес">−</button><b>${k.weight}</b><button data-a="kw" data-id="${k.id}" data-n="1" aria-label="Увеличить вес">+</button></span></span>
+          <span class="btnrow"><button class="chip" data-a="add" data-tab="task" data-k="${k.id}">+ Подзадача</button><button class="chip" data-a="editkey" data-id="${k.id}">Изменить</button><button class="chip" data-a="cankey" data-id="${k.id}">${canc?'Вернуть':'Отменить'}</button></span>
+        </div>
+      </div>`}).join(''):'<div class="empty">Разбейте цель на 2–5 ключевых задач.</div>'}</div>
+    <div class="btnrow"><button class="btn2" data-a="editgoal" data-id="${g.id}">Изменить цель</button><button class="btn2 danger" data-a="delgoal" data-id="${g.id}">Удалить цель</button></div>
+  </div>`}}
+function eventSheet(id){return()=>{
+  const e=S.events.find(x=>x.id===id);if(!e)return null;
+  return head(esc(e.title),`${DWF[dow(e.date)]}, ${dLong(e.date)}${e.time?' · '+e.time:''}`)+`<div class="stack">
+    ${eventForm(e)}
+    <div class="warnbox"><b>Подготовка.</b> <span class="mute">Создать задачи за 1–3 дня до события${e.goalId?' в связанной цели':''}.</span><div class="btnrow" style="margin-top:8px">${[1,2,3].map(n=>`<button class="btn2" data-a="prep" data-id="${e.id}" data-n="${n}">За ${n} ${plural(n,'день','дня','дней')}</button>`).join('')}</div></div>
+    <button class="btn2 danger" data-a="delevent" data-id="${e.id}">Удалить событие</button>
+  </div>`}}
+function settingsSheet(){
+  return head('Настройки',monthTitle())+`<form class="f" data-f="settings">
+    <label class="fld"><span>Фокус месяца</span><input id="st-focus" name="focus" value="${esc(S.month.focus||'')}"></label>
+    <label class="fld"><span>Лимит нагрузки дня, часов</span><input id="st-limit" type="number" min="1" max="16" name="dayLimit" value="${S.settings?.dayLimit||8}"></label>
+    <button class="btnp" type="submit">Сохранить</button></form>
+    <div class="section"><h3>Сферы</h3><div class="chips">${S.spheres.map(s=>`<span class="chip"><span class="dot" style="background:${s.color}"></span>${esc(s.name)}</span>`).join('')}</div>
+      <form class="f" data-f="sphere" style="flex-direction:row"><input id="st-sphere" name="name" placeholder="Новая сфера" required autocomplete="off"><button class="btn2" type="submit">Добавить</button></form></div>
+    <div class="section"><h3>Данные</h3><div class="small mute">${syncState==='db'?'План хранится в вашем аккаунте и доступен только вам.':'План хранится в этом браузере.'}</div>
+      <div class="btnrow"><button class="btn2" data-a="wizard">Спланировать новый месяц</button><button class="btn2 danger" data-a="demo">Загрузить пример заново</button></div></div>`;
+}
+
+/* ===================== wizard (мастер месяца в 3 шага) ===================== */
+function wizStart(){
+  const t=pd(TODAY);let m=t.getMonth(),y=t.getFullYear();
+  if(S.month.start.slice(0,7)===TODAY.slice(0,7)&&!S.demo){m++;if(m>11){m=0;y++}}
+  ui.wiz={step:1,month:y+'-'+pad(m+1),spheres:S.spheres.map(s=>s.name),sel:S.spheres.slice(0,4).map(s=>s.name),goals:[],carry:true};
+  openSheet(wizSheet);
+}
+function wizSheet(){
+  const w=ui.wiz;if(!w)return null;
+  const steps=['Сферы','Цели','Ключевые задачи'];
+  const h=head('Новый месяц',`Шаг ${w.step} из 3 · ${steps[w.step-1]}`);
+  if(w.step===1)return h+`<form class="f" data-f="wiz1">
+    <label class="fld"><span>Месяц</span><input id="wz-month" type="month" name="month" value="${w.month}" required></label>
+    <div class="fld"><span>Сферы, в которых будут цели</span><div class="chips">${w.spheres.map(n=>`<button type="button" class="chip ${w.sel.includes(n)?'on':''}" data-a="wzsp" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>
+    <div class="row"><input class="inp" id="wz-newsp" name="newsp" placeholder="Своя сфера" autocomplete="off"><button type="button" class="btn2" data-a="wzaddsp">Добавить</button></div>
+    <button class="btnp" type="submit">Дальше</button></form>`;
+  if(w.step===2)return h+`<div class="hint" style="margin-bottom:10px">Сформулируйте 3–5 измеримых целей. Для «числа» укажите план, например 20 Reels.</div>
+    <form class="f" data-f="wiz2">${w.goals.map((g,i)=>`<div class="wiz-goal">
+      <div class="row"><input class="inp grow" id="wz-gt-${i}" name="t${i}" value="${esc(g.title)}" placeholder="Цель ${i+1}" ${i===0?'autofocus':''}><button type="button" class="x" data-a="wzdel" data-i="${i}" aria-label="Убрать цель">×</button></div>
+      <div class="three"><select class="inp" id="wz-gs-${i}" name="s${i}">${w.sel.map(n=>`<option ${g.sphere===n?'selected':''}>${esc(n)}</option>`).join('')}</select><select class="inp" id="wz-gy-${i}" name="y${i}"><option value="checklist" ${g.type==='checklist'?'selected':''}>Чек-лист</option><option value="number" ${g.type==='number'?'selected':''}>Число</option></select><input class="inp" id="wz-gn-${i}" type="number" min="0" name="n${i}" value="${g.target||''}" placeholder="План"></div>
+      <div class="two"><input class="inp" id="wz-gu-${i}" name="u${i}" value="${esc(g.unit||'')}" placeholder="Единица (для числа)"><label class="row small mute">Вес <input class="inp" id="wz-gw-${i}" type="number" min="1" max="5" name="w${i}" value="${g.weight||1}"></label></div>
+    </div>`).join('')}
+    ${w.goals.length<5?'<button type="button" class="btn2" data-a="wzadd">+ Ещё цель</button>':''}
+    <div class="btnrow"><button type="button" class="btn2" data-a="wzback">Назад</button><button class="btnp grow" type="submit">Дальше</button></div></form>`;
+  return h+`<div class="hint" style="margin-bottom:10px">Разбейте цели на ключевые задачи и разложите по неделям. По одной задаче в строке; номер недели — в начале: «2 Провести 10 встреч».</div>
+    <form class="f" data-f="wiz3">${w.goals.map((g,i)=>`<label class="fld"><span>${esc(g.title)}</span><textarea id="wz-k-${i}" name="k${i}" placeholder="1 Собрать базу из 50 лидов&#10;2 Провести 10 встреч">${esc(g.keys||'')}</textarea></label>`).join('')}
+    <label class="row small"><input type="checkbox" id="wz-carry" name="carry" ${w.carry?'checked':''} style="width:auto"> Перенести незавершённые задачи текущего месяца во «Входящие»</label>
+    <div class="btnrow"><button type="button" class="btn2" data-a="wzback">Назад</button><button class="btnp grow" type="submit">Создать план месяца</button></div></form>`;
+}
+function wizReadGoals(fd){
+  const w=ui.wiz;
+  w.goals=w.goals.map((g,i)=>({...g,title:(fd.get('t'+i)||'').trim(),sphere:fd.get('s'+i),type:fd.get('y'+i),target:+fd.get('n'+i)||0,unit:(fd.get('u'+i)||'').trim(),weight:Math.min(5,Math.max(1,+fd.get('w'+i)||1))}));
+}
+function wizFinish(fd){
+  const w=ui.wiz;
+  w.goals.forEach((g,i)=>g.keys=fd.get('k'+i)||'');
+  const [y,m]=w.month.split('-').map(Number);
+  const start=`${y}-${pad(m)}-01`,end=iso(new Date(y,m,0));
+  const carry=fd.get('carry')?S.subtasks.filter(s=>live(s)&&s.status!=='done').map(s=>({...s,id:uid(),keyTaskId:null,date:null,status:'todo',moves:0})):S.subtasks.filter(s=>live(s)&&!s.date&&!s.keyTaskId);
+  const archive=[...(S.archive||[])];
+  if(!S.demo&&S.goals.length)archive.push({title:monthTitle(),pct:monthPct()});
+  const spheres=w.spheres.map((n,i)=>S.spheres.find(s=>s.name===n)||{id:uid(),name:n,color:SPHERE_COLORS[i%SPHERE_COLORS.length]});
+  const N={v:1,demo:false,settings:S.settings||{dayLimit:8},month:{start,end,focus:''},archive:S.demo?[]:archive,spheres,goals:[],keyTasks:[],subtasks:carry,events:S.events.filter(e=>e.date>=start&&!S.demo)};
+  const tmp=S;S=N;
+  const ws=weeks();
+  w.goals.filter(g=>g.title).forEach(g=>{
+    const gid=uid();
+    N.goals.push({id:gid,sphereId:(spheres.find(s=>s.name===g.sphere)||spheres[0]).id,title:g.title,type:g.type,target:g.type==='number'?g.target:0,unit:g.unit,weight:g.weight,deadline:end,status:'active',log:[]});
+    (g.keys||'').split('\n').map(l=>l.trim()).filter(Boolean).forEach(l=>{
+      const mm=l.match(/^(\d)\s*[.)-]?\s+(.*)$/);let wk=1,t=l;
+      if(mm){wk=Math.min(ws.length,Math.max(1,+mm[1]));t=mm[2]}
+      N.keyTasks.push({id:uid(),goalId:gid,title:t,weight:1,week:wk,due:ws[wk-1][1],status:'todo'});
+    });
+  });
+  void tmp;
+  ui.wiz=null;ui.day=null;ui.week=null;
+  closeAll();location.hash='month';commit('План месяца создан');
+}
+
+/* ===================== quick input parser ===================== */
+const WD={'пн':0,'понедельник':0,'вт':1,'вторник':1,'ср':2,'среда':2,'среду':2,'чт':3,'четверг':3,'пт':4,'пятница':4,'пятницу':4,'сб':5,'суббота':5,'субботу':5,'вс':6,'воскресенье':6};
+function parseQuick(str){
+  let t=' '+str+' ',date=null,time=null;const tags=[];
+  t=t.replace(/#([\p{L}\p{N}_-]+)/gu,(_,x)=>{tags.push(x.toLowerCase());return ' '});
+  const tm=t.match(/\s(?:в\s+)?(\d{1,2}):(\d{2})(?=\s)/);
+  if(tm&&+tm[1]<24&&+tm[2]<60){time=pad(+tm[1])+':'+tm[2];t=t.replace(tm[0],' ')}
+  const dm=t.match(/\s(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?(?=\s)/);
+  if(dm){let y=dm[3]?(+dm[3]<100?2000+ +dm[3]:+dm[3]):pd(TODAY).getFullYear();const d=new Date(y,+dm[2]-1,+dm[1]);if(!isNaN(d)){date=iso(d);t=t.replace(dm[0],' ')}}
+  if(!date){
+    const w=t.match(/\s(?:в(?:о)?\s+)?(сегодня|послезавтра|завтра|пн|вт|ср|чт|пт|сб|вс|понедельник|вторник|среду|среда|четверг|пятницу|пятница|субботу|суббота|воскресенье)(?=[\s,.]|$)/i);
+    if(w){const k=w[1].toLowerCase();
+      if(k==='сегодня')date=TODAY;else if(k==='завтра')date=addDays(TODAY,1);else if(k==='послезавтра')date=addDays(TODAY,2);
+      else{const target=WD[k];let n=(target-dow(TODAY)+7)%7;date=addDays(TODAY,n)}
+      t=t.replace(w[0],' ')}
+  }
+  let link=null;
+  for(const tag of tags){
+    const sp=S.spheres.find(s=>s.name.toLowerCase().replace(/\s+/g,'').startsWith(tag)||tag.startsWith(s.name.toLowerCase().slice(0,5)));
+    const g=sp?liveGoals().find(g=>g.sphereId===sp.id&&keysOf(g).length):liveGoals().find(g=>g.title.toLowerCase().includes(tag)&&keysOf(g).length);
+    if(g){const k=keysOf(g).find(k=>k.status!=='done')||keysOf(g)[0];link=k.id;break}
+  }
+  return {title:t.replace(/\s+/g,' ').trim(),date,time,tags,link};
+}
+
+/* ===================== render ===================== */
+function render(){
+  const r=ui.route;
+  const html={month:screenMonth,week:screenWeek,day:screenDay,goals:screenGoals,analytics:screenAnalytics,events:screenEvents,inbox:screenInbox}[r]();
+  const app=$('#app');
+  app.innerHTML=`<div class="wrap ${r==='week'?'wide':''}">${html}<div style="margin-top:28px;display:flex;justify-content:center">${syncHTML()}</div></div>`;
+  const navR=['events','inbox'].includes(r)?'month':r;
+  $('#nav').innerHTML=[['month','Месяц'],['week','Неделя'],['day','День'],['goals','Цели'],['analytics','Аналитика']].map(([k,v])=>`<button class="${navR===k?'on':''}" data-a="nav" data-r="${k}" aria-current="${navR===k?'page':'false'}">${I[k]}<span>${v}</span></button>`).join('');
+}
+let toastT;
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,1800)}
+function arm(el,text){if(el.dataset.armed)return true;el.dataset.armed='1';el.textContent=text||'Нажмите ещё раз, чтобы удалить';return false}
+
+/* ===================== actions ===================== */
+const A={
+  nav:d=>{location.hash=d.r},
+  goday:d=>{ui.day=d.d;location.hash='day';if(ui.route==='day')render()},
+  goweek:d=>{ui.week=+d.w;location.hash='week';if(ui.route==='week')render()},
+  dy:d=>{ui.day=addDays(curDay(),+d.n);render()},
+  wk:d=>{ui.week=Math.max(1,Math.min(weeks().length,curWeek()+ +d.n));render()},
+  tog:d=>{const s=subById(d.id);toggleSub(s);commit(s.status==='done'?'Выполнено · '+fp(goalOfSub(s)?goalPct(goalOfSub(s)):rangeStat(s.date,s.date).p):null)},
+  task:d=>openSheet(taskSheet(d.id)),
+  goal:d=>openSheet(goalSheet(d.id)),
+  event:d=>openSheet(eventSheet(d.id)),
+  add:d=>{ui.addTab=d.tab||'task';ui.addPre={date:d.d||(ui.route==='day'?curDay():undefined),keyTaskId:d.k,goalId:d.g,week:d.w?+d.w:undefined};openSheet(addSheet)},
+  tab:d=>{ui.addTab=d.t;renderSheet()},
+  close:()=>closeSheet(),
+  status:d=>{const s=subById(d.id);setSubStatus(s,d.s);commit()},
+  check:d=>{const s=subById(d.id),c=s.checks.find(x=>x.id===d.c);c.done=!c.done;c.doneAt=c.done?TODAY:null;
+    if(s.checks.every(x=>x.done)&&s.status!=='done')setSubStatus(s,'done');
+    else if(!c.done&&s.status==='done')setSubStatus(s,'doing');
+    else if(c.done&&s.status==='todo'){s.status='doing';syncKeyStatus(s.keyTaskId)}
+    commit()},
+  move:d=>openSheet(moveSheet(d.id)),
+  moveto:d=>{const s=subById(d.id);moveSub(s,d.d||null);closeSheet();commit(d.d?'Перенесено на '+dShort(d.d):'Перенесено во входящие')},
+  edittask:d=>openSheet(()=>{const s=subById(d.id);return s?head('Изменить задачу')+taskForm(s):null}),
+  delsub:(d,el)=>{if(!arm(el))return;const s=subById(d.id);S.subtasks=S.subtasks.filter(x=>x.id!==d.id);syncKeyStatus(s.keyTaskId);if(stack.length)closeSheet();commit('Удалено')},
+  assign:d=>openSheet(assignSheet(d.id)),
+  fact:d=>{const g=goalById(d.id);const n=+d.n;if(n<0&&factOf(g)<=0)return;g.log=g.log||[];g.log.push({date:TODAY,delta:n});commit()},
+  gw:d=>{const g=goalById(d.id);g.weight=Math.max(1,Math.min(5,g.weight+ +d.n));commit()},
+  kw:d=>{const k=keyById(d.id);k.weight=Math.max(1,Math.min(5,(k.weight||1)+ +d.n));commit()},
+  keytog:d=>{const k=keyById(d.id);k.status=k.status==='done'?'todo':'done';k.doneAt=k.status==='done'?TODAY:null;commit()},
+  cankey:d=>{const k=keyById(d.id);if(k.status==='cancelled'){k.status='todo';syncKeyStatus(k.id)}else k.status='cancelled';commit()},
+  editkey:d=>openSheet(()=>{const k=keyById(d.id);return k?head('Изменить ключевую задачу')+keyForm(k):null}),
+  editgoal:d=>openSheet(()=>{const g=goalById(d.id);return g?head('Изменить цель')+goalForm(g):null}),
+  delgoal:(d,el)=>{if(!arm(el,'Удалить вместе с задачами? Нажмите ещё раз'))return;const ks=S.keyTasks.filter(k=>k.goalId===d.id).map(k=>k.id);S.subtasks=S.subtasks.filter(s=>!ks.includes(s.keyTaskId));S.keyTasks=S.keyTasks.filter(k=>k.goalId!==d.id);S.goals=S.goals.filter(g=>g.id!==d.id);S.events.forEach(e=>{if(e.goalId===d.id)e.goalId=''});closeAll();commit('Цель удалена')},
+  delevent:(d,el)=>{if(!arm(el))return;S.events=S.events.filter(e=>e.id!==d.id);closeAll();commit('Событие удалено')},
+  prep:d=>{const e=S.events.find(x=>x.id===d.id);const n=+d.n;const g=e.goalId&&goalById(e.goalId);const k=g&&(keysOf(g).find(k=>k.status!=='done')||keysOf(g)[0]);
+    for(let i=n;i>=1;i--)S.subtasks.push({id:uid(),keyTaskId:k?k.id:null,title:`Подготовка: ${e.title}`+(n>1?` (${n-i+1}/${n})`:''),date:addDays(e.date,-i),time:'',duration:60,priority:'high',status:'todo',moves:0,checks:[],tags:[],doneAt:null});
+    if(k)syncKeyStatus(k.id);commit(`Создано задач: ${n}`)},
+  carry:d=>{const t=addDays(d.d,1);let c=0;S.subtasks.forEach(s=>{if(s.date===d.d&&live(s)&&s.status!=='done'){moveSub(s,t);c++}});commit(`Перенесено на завтра: ${c}`)},
+  settings:()=>openSheet(settingsSheet),
+  demo:(d,el)=>{if(!arm(el,'Текущий план заменится. Нажмите ещё раз'))return;S=demoState();ui.day=null;ui.week=null;closeAll();commit('Пример загружен')},
+  wizard:()=>{if(stack.length)closeAll();wizStart()},
+  wzsp:(d)=>{const w=ui.wiz;w.sel=w.sel.includes(d.n)?w.sel.filter(x=>x!==d.n):[...w.sel,d.n];w.month=$('#wz-month')?.value||w.month;renderSheet()},
+  wzaddsp:()=>{const v=$('#wz-newsp').value.trim();const w=ui.wiz;w.month=$('#wz-month')?.value||w.month;if(v&&!w.spheres.includes(v)){w.spheres.push(v);w.sel.push(v)}renderSheet()},
+  wzadd:()=>{const f=$('#panel form');wizReadGoals(new FormData(f));ui.wiz.goals.push({title:'',sphere:ui.wiz.sel[0],type:'checklist',target:0,unit:'',weight:1});renderSheet()},
+  wzdel:d=>{const f=$('#panel form');wizReadGoals(new FormData(f));ui.wiz.goals.splice(+d.i,1);renderSheet()},
+  wzback:()=>{const f=$('#panel form');const w=ui.wiz;if(w.step===2)wizReadGoals(new FormData(f));if(w.step===3){const fd=new FormData(f);w.goals.forEach((g,i)=>g.keys=fd.get('k'+i)||'');w.carry=!!fd.get('carry')}w.step--;renderSheet()},
+};
+const F={
+  task:(fd,f)=>{
+    const id=f.dataset.id,link=fd.get('link');
+    const data={title:fd.get('title').trim(),date:link==='inbox'?null:(fd.get('date')||null),time:fd.get('time')||'',duration:+fd.get('duration')||0,priority:fd.get('priority'),keyTaskId:link&&link!=='inbox'?link:null};
+    if(!data.date&&!data.keyTaskId&&link!=='inbox'){data.date=curDay()}
+    if(id){const s=subById(id);const old=s.keyTaskId;if(data.date!==s.date&&s.date&&data.date)moveSub(s,data.date);Object.assign(s,data);syncKeyStatus(old);syncKeyStatus(s.keyTaskId);closeSheet();commit('Сохранено');return}
+    const checks=(fd.get('checks')||'').split('\n').map(x=>x.trim()).filter(Boolean).map(text=>({id:uid(),text,done:false}));
+    const tags=(fd.get('tags')||'').split(',').filter(Boolean);
+    S.subtasks.push({id:uid(),...data,status:'todo',moves:0,checks,tags,doneAt:null});
+    syncKeyStatus(data.keyTaskId);closeSheet();
+    commit(data.date?'Добавлено на '+dShort(data.date):'Добавлено во входящие');
+  },
+  key:(fd,f)=>{
+    const id=f.dataset.id,wk=+fd.get('week');
+    const data={goalId:fd.get('goalId'),title:fd.get('title').trim(),weight:Math.min(5,Math.max(1,+fd.get('weight')||1)),week:wk,due:fd.get('due')||weeks()[wk-1][1]};
+    if(id)Object.assign(keyById(id),data);else S.keyTasks.push({id:uid(),...data,status:'todo'});
+    closeSheet();commit(id?'Сохранено':'Ключевая задача добавлена');
+  },
+  goal:(fd,f)=>{
+    const id=f.dataset.id;
+    const data={title:fd.get('title').trim(),sphereId:fd.get('sphereId'),type:fd.get('type'),target:+fd.get('target')||0,unit:fd.get('unit').trim(),weight:Math.min(5,Math.max(1,+fd.get('weight')||1)),deadline:fd.get('deadline')};
+    if(id)Object.assign(goalById(id),data);else S.goals.push({id:uid(),...data,status:'active',log:[]});
+    closeSheet();commit(id?'Сохранено':'Цель добавлена');
+  },
+  event:(fd,f)=>{
+    const id=f.dataset.id;
+    const data={title:fd.get('title').trim(),date:fd.get('date'),time:fd.get('time')||'',goalId:fd.get('goalId')||'',importance:fd.get('importance')};
+    if(id)Object.assign(S.events.find(e=>e.id===id),data);else S.events.push({id:uid(),...data});
+    closeSheet();commit(id?'Сохранено':'Событие добавлено');
+  },
+  check:(fd,f)=>{const s=subById(f.dataset.id);s.checks=s.checks||[];s.checks.push({id:uid(),text:fd.get('text').trim(),done:false});if(s.status==='done')setSubStatus(s,'doing');commit()},
+  move:(fd,f)=>{const s=subById(f.dataset.id);const d=fd.get('date');moveSub(s,d);closeSheet();commit('Перенесено на '+dShort(d))},
+  assign:(fd,f)=>{const s=subById(f.dataset.id);const l=fd.get('link');s.keyTaskId=l&&l!=='inbox'?l:null;s.date=l==='inbox'?null:(fd.get('date')||curDay());syncKeyStatus(s.keyTaskId);closeSheet();commit('Задача разобрана')},
+  inbox:(fd,f)=>{S.subtasks.push({id:uid(),keyTaskId:null,title:fd.get('q').trim(),date:null,time:'',duration:30,priority:'normal',status:'todo',moves:0,checks:[],tags:[],doneAt:null});commit('Записано во входящие');setTimeout(()=>$('#inbox-q')?.focus(),0)},
+  settings:fd=>{S.month.focus=fd.get('focus').trim();S.settings={...(S.settings||{}),dayLimit:Math.max(1,+fd.get('dayLimit')||8)};closeSheet();commit('Сохранено')},
+  sphere:fd=>{const n=fd.get('name').trim();if(n&&!S.spheres.some(s=>s.name===n))S.spheres.push({id:uid(),name:n,color:SPHERE_COLORS[S.spheres.length%SPHERE_COLORS.length]});commit('Сфера добавлена')},
+  wiz1:fd=>{const w=ui.wiz;w.month=fd.get('month');if(!w.sel.length){toast('Выберите хотя бы одну сферу');return}
+    if(!w.goals.length)w.goals=w.sel.slice(0,3).map(n=>({title:'',sphere:n,type:'checklist',target:0,unit:'',weight:1}));
+    w.goals.forEach(g=>{if(!w.sel.includes(g.sphere))g.sphere=w.sel[0]});w.step=2;renderSheet()},
+  wiz2:fd=>{wizReadGoals(fd);const w=ui.wiz;const n=w.goals.filter(g=>g.title).length;if(!n){toast('Добавьте хотя бы одну цель');return}w.goals=w.goals.filter(g=>g.title);w.step=3;renderSheet()},
+  wiz3:fd=>wizFinish(fd),
+};
+
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el||el.disabled)return;
+  const fn=A[el.dataset.a];if(!fn)return;
+  if(el.tagName!=='A')e.preventDefault();
+  fn(el.dataset,el,e);
+});
+document.addEventListener('submit',e=>{
+  const f=e.target.closest('form[data-f]');if(!f)return;e.preventDefault();
+  F[f.dataset.f]?.(new FormData(f),f);
+});
+document.addEventListener('input',e=>{
+  if(e.target.id!=='tf-quick')return;
+  const q=parseQuick(e.target.value);
+  $('#tf-title').value=q.title;
+  if(q.date)$('#tf-date').value=q.date;
+  if(q.time)$('#tf-time').value=q.time;
+  if(q.link)$('#tf-link').value=q.link;
+  $('#tf-tags').value=q.tags.join(',');
+  const k=q.link&&keyById(q.link);
+  $('#parsed').innerHTML=[q.date&&`<span class="pill">${dShort(q.date)}</span>`,q.time&&`<span class="pill">${q.time}</span>`,...q.tags.map(t=>`<span class="pill">#${esc(t)}</span>`),k&&`<span class="pill"><span class="dot" style="background:${sphereById(goalById(k.goalId).sphereId).color}"></span>${esc(k.title)}</span>`].filter(Boolean).join('')||'<span class="hint">Дата, время и тег распознаются автоматически: сегодня, завтра, пн…вс, 12.11, 15:00, #сфера</span>';
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&stack.length)closeSheet()});
+/* drag & drop between days (week view) */
+document.addEventListener('dragstart',e=>{const t=e.target.closest?.('[data-drag]');if(!t)return;ui.dragId=t.dataset.drag;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',ui.dragId)}catch(_){}});
+document.addEventListener('dragover',e=>{const c=e.target.closest?.('[data-drop]');if(!c||!ui.dragId)return;e.preventDefault();document.querySelectorAll('.daycol.over').forEach(x=>x!==c&&x.classList.remove('over'));c.classList.add('over')});
+document.addEventListener('drop',e=>{const c=e.target.closest?.('[data-drop]');if(!c||!ui.dragId)return;e.preventDefault();const s=subById(ui.dragId);ui.dragId=null;if(s&&s.date!==c.dataset.drop){moveSub(s,c.dataset.drop);commit('Перенесено на '+dShort(c.dataset.drop))}else render()});
+document.addEventListener('dragend',()=>{ui.dragId=null;document.querySelectorAll('.daycol.over').forEach(x=>x.classList.remove('over'))});
+window.addEventListener('hashchange',()=>{readHash();render();window.scrollTo(0,0)});
+
+readHash();render();initStore();
+</script>
