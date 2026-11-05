@@ -155,8 +155,9 @@ const ymTitle=ym=>{const[y,m]=ym.split('-').map(Number);return MN[m-1]+' '+y};
 const ymShift=(ym,n)=>{const[y,m]=ym.split('-').map(Number);const d=new Date(y,m-1+n,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)};
 const dayList=(a,b)=>{const r=[];for(let d=a;d<=b;d=addDays(d,1))r.push(d);return r};
 const SPHERE_COLORS=['#64A8FF','#BF7AF0','#FF9F5A','#4FD1C5','#E58FB5','#A3B1FF','#D4C17A'];
-const EXP_CATS=['Еда','Транспорт','Жильё','Связь и подписки','Здоровье','Одежда','Развлечения','Работа и реклама','Долги и кредиты','Другое'];
-const INC_CATS=['Клиенты','Зарплата','Подработка','Возврат долга','Другое'];
+const EXP_CATS=['Депозит','Благое','Гулянки','Агентство','Еда','Транспорт','Жильё','Связь и подписки','Здоровье','Одежда','Остальное'];
+const OTHER='Остальное';
+const INC_CATS=['Клиенты','Зарплата','Подработка','Возврат долга','Остальное'];
 
 /* ===================== state & storage ===================== */
 function emptyState(){
@@ -355,7 +356,8 @@ function screenMoney(){
     if(e.date!==lastDate){ops+=`<div class="daylbl">${e.date===TODAY?'Сегодня':DWF[dow(e.date)]+', '+dLong(e.date)}</div>`;lastDate=e.date}
     ops+=`<button class="op" data-a="editop" data-id="${e.id}"><div class="grow"><div class="tt">${esc(e.category)}</div>${e.note?`<div class="small mute" style="overflow-wrap:anywhere">${esc(e.note)}</div>`:''}</div><span class="amt ${e.type==='income'?'c-ok':''}">${e.type==='income'?'+':'−'}${money(e.amount)}</span></button>`;
   }
-  const catBars=(list,total,color)=>`<div class="card hbar">${list.map(([c,v])=>`<div><div class="small" style="margin-bottom:5px">${esc(c)}</div>${bar(v/total*100,'',color)}</div><b style="text-align:right">${money(v)}</b>`).join('')}</div>`;
+  const notesOf=(c,type)=>es.filter(e=>e.type===type&&e.category===c&&e.note).map(e=>`${esc(e.note)} — ${money(e.amount)}`);
+  const catBars=(list,total,color,type)=>`<div class="card hbar">${list.map(([c,v])=>{const ns=c===OTHER?notesOf(c,type):[];return `<div><div class="small" style="margin-bottom:5px">${esc(c)}</div>${bar(v/total*100,'',color)}${ns.length?`<div class="small mute" style="margin-top:6px;display:flex;flex-direction:column;gap:2px">${ns.map(n=>`<span>· ${n}</span>`).join('')}</div>`:''}</div><b style="text-align:right;align-self:start">${money(v)}</b>`}).join('')}</div>`;
   return topbar('Финансы','Доходы и расходы за месяц')+
   `<div class="row between" style="margin-bottom:12px"><button class="iconbtn" data-a="fym" data-n="-1" aria-label="Предыдущий месяц">${I.left}</button><h2>${ymTitle(ym)}</h2><button class="iconbtn" data-a="fym" data-n="1" aria-label="Следующий месяц">${I.right}</button></div>
    <div class="money3"><div class="card"><span class="small mute">Заработал</span><b class="c-ok">${money(inc)}</b></div><div class="card"><span class="small mute">Потратил</span><b class="c-bad">${money(exp)}</b></div><div class="card"><span class="small mute">Осталось</span><b class="${bal<0?'c-bad':''}">${money(bal)}</b></div></div>
@@ -366,8 +368,8 @@ function screenMoney(){
        ${plan.expense?(()=>{const c=exp>plan.expense?'bad':exp>plan.expense*.85?'warn':'ok';return `<div><div class="small" style="margin-bottom:6px">Расходы: ${money(exp)} из ${money(plan.expense)}</div>${bar(exp/plan.expense*100,c)}<div class="small ${exp>plan.expense?'c-bad':'mute'}" style="margin-top:6px">${exp>plan.expense?`Лимит превышен на ${money(exp-plan.expense)}`:`Можно потратить ещё ${money(plan.expense-exp)}`}</div></div>`})():''}
      </div>`:'<div class="empty">Задайте, сколько хотите заработать и сколько готовы потратить.</div>'}
    </div>
-   <div class="section"><h2>Куда ушли деньги</h2>${expCats.length?catBars(expCats,exp,'var(--bad)')+`<div class="small mute">В среднем ${money(daysPassed?exp/daysPassed:0)} в день</div>`:'<div class="empty">Расходов за месяц пока нет.</div>'}</div>
-   <div class="section"><h2>Откуда пришли</h2>${incCats.length?catBars(incCats,inc,'var(--ok)'):'<div class="empty">Доходов за месяц пока нет.</div>'}</div>
+   <div class="section"><h2>Куда ушли деньги</h2>${expCats.length?catBars(expCats,exp,'var(--bad)','expense')+`<div class="small mute">В среднем ${money(daysPassed?exp/daysPassed:0)} в день</div>`:'<div class="empty">Расходов за месяц пока нет.</div>'}</div>
+   <div class="section"><h2>Откуда пришли</h2>${incCats.length?catBars(incCats,inc,'var(--ok)','income'):'<div class="empty">Доходов за месяц пока нет.</div>'}</div>
    <div class="section"><h2>Все операции</h2>${ops||'<div class="empty">Операций пока нет. Нажмите «+», чтобы записать доход или расход.</div>'}</div>`;
 }
 
@@ -436,8 +438,8 @@ function opForm(op){
   <form class="f" data-f="op" data-id="${isNew?'':op.id}" data-t="${t}">
     <label class="fld"><span>Сумма, ${esc(S.finance.currency)}</span><input id="of-amount" type="number" inputmode="decimal" min="0" step="any" name="amount" value="${op.amount}" required autofocus></label>
     <label class="fld"><span>${t==='income'?'Откуда':'На что'}</span><input id="of-cat" name="category" list="of-cats" value="${esc(op.category)}" placeholder="Выберите или впишите свою" required autocomplete="off"><datalist id="of-cats">${cats.map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></label>
-    <div class="chips">${cats.slice(0,8).map(c=>`<button type="button" class="chip" data-a="pickcat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-    <div class="two"><label class="fld"><span>Дата</span><input id="of-date" type="date" name="date" value="${op.date}" required></label><label class="fld"><span>Комментарий</span><input id="of-note" name="note" value="${esc(op.note||'')}" autocomplete="off"></label></div>
+    <div class="chips">${cats.slice(0,14).map(c=>`<button type="button" class="chip" data-a="pickcat" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+    <div class="two"><label class="fld"><span>Дата</span><input id="of-date" type="date" name="date" value="${op.date}" required></label><label class="fld"><span>Комментарий${op.category===OTHER?' (обязательно)':''}</span><input id="of-note" name="note" value="${esc(op.note||'')}" placeholder="${op.category===OTHER?'На что именно':''}" autocomplete="off"></label></div>
     <button class="btnp" type="submit">${isNew?(t==='income'?'Записать доход':'Записать расход'):'Сохранить'}</button>
   </form>
   ${isNew?'':`<button class="btn2 danger" data-a="delop" data-id="${op.id}" style="margin-top:10px;width:100%">Удалить операцию</button>`}`;
@@ -555,7 +557,7 @@ const A={
   carry:d=>{const t=addDays(d.d,1);let c=0;S.subtasks.forEach(s=>{if(s.date===d.d&&!s.done){moveSub(s,t);c++}});commit(`Перенесено на завтра: ${c}`)},
   addop:d=>{ui.moneyType=d.t;openSheet(()=>head('Новая операция')+opForm(null))},
   mtype:d=>{ui.moneyType=d.t;renderSheet()},
-  pickcat:d=>{const i=$('#of-cat');if(i)i.value=d.c},
+  pickcat:d=>{const i=$('#of-cat');if(i)i.value=d.c;const n=$('#of-note');if(n){n.placeholder=d.c===OTHER?'На что именно — обязательно':'';if(d.c===OTHER)n.focus()}},
   editop:d=>openSheet(()=>{const o=S.finance.entries.find(e=>e.id===d.id);return o?head(o.type==='income'?'Доход':'Расход')+opForm(o):null}),
   delop:(d,el)=>{if(!arm(el))return;S.finance.entries=S.finance.entries.filter(e=>e.id!==d.id);closeSheet();commit('Операция удалена')},
   plan:()=>openSheet(planSheet),
@@ -592,7 +594,8 @@ const F={
   op:(fd,f)=>{
     const id=f.dataset.id,amount=Math.abs(parseFloat(String(fd.get('amount')).replace(',','.')));
     if(!amount){toast('Введите сумму');return}
-    const data={amount,category:fd.get('category').trim()||'Другое',date:fd.get('date'),note:fd.get('note').trim()};
+    const data={amount,category:fd.get('category').trim()||OTHER,date:fd.get('date'),note:fd.get('note').trim()};
+    if(data.category===OTHER&&!data.note){toast('Для «Остальное» напишите комментарий');$('#of-note')?.focus();return}
     if(id)Object.assign(S.finance.entries.find(e=>e.id===id),data);
     else S.finance.entries.push({id:uid(),type:f.dataset.t,ts:Date.now(),...data});
     ui.finYm=data.date.slice(0,7);
