@@ -79,8 +79,8 @@ h3{font-size:15px;font-weight:600}
 .chk{display:flex;gap:10px;align-items:center;background:none;border:0;padding:4px 0;text-align:left;color:var(--fg)}
 .chk.on span:last-child{color:var(--mute);text-decoration:line-through}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--raise);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px))}
-.nav .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);height:var(--nav-h)}
-.nav button{background:none;border:0;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:600}
+.nav .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));height:var(--nav-h)}
+.nav button{background:none;border:0;padding:0 2px;min-width:0;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .nav button svg{width:22px;height:22px}
 .nav button.on{color:var(--acc)}
 .fab{position:fixed;z-index:21;right:max(18px,calc(env(safe-area-inset-right,0px) + 18px));bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:18px;border:0;background:var(--acc);color:var(--on-acc);display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
@@ -298,7 +298,7 @@ function catList(type){
 }
 
 /* ===================== UI state ===================== */
-const ROUTES=['month','day','goals','money'];
+const ROUTES=['month','day','goals','namaz','daily','money'];
 const ui={route:'month',day:null,addTab:'task',finYm:TODAY.slice(0,7),moneyType:'expense'};
 function curDay(){return ui.day||(inMonth(TODAY)?TODAY:S.month.start)}
 function readHash(){const h=location.hash.slice(1);ui.route=ROUTES.includes(h)?h:'month'}
@@ -311,6 +311,8 @@ const I={
   day:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/></svg>',
   money:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14.5h2"/></svg>',
+  namaz:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5a8.5 8.5 0 1 0 5 13.4A7 7 0 0 1 15.5 3.5z"/></svg>',
+  daily:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.5-4.6L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.5 4.6L20 16"/><path d="M20 20v-4h-4"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>',
   left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>',
   right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
@@ -381,17 +383,14 @@ function screenDay(){
   return topbar(label,`${DWF[dow(d)]}, ${dLong(d)}`)+
   `<div class="row between"><button class="iconbtn" data-a="dy" data-n="-1" aria-label="Предыдущий день">${I.left}</button><button class="chip" data-a="add" data-tab="task" data-d="${d}">+ Задача</button><button class="iconbtn" data-a="dy" data-n="1" aria-label="Следующий день">${I.right}</button></div>
    ${evs.length?`<div class="section"><h2>События дня</h2>${evs.map(eventRow).join('')}</div>`:''}
-   ${namazBlock(d)}
-   ${dailyBlock(d)}
    <div class="section"><h2>Задачи</h2>${ts.length?ts.map(taskRow).join(''):'<div class="empty">На этот день задач нет.</div>'}</div>
    ${left&&d<=TODAY?`<div class="section"><button class="btn2" data-a="carry" data-d="${d}">Перенести невыполненное на завтра</button></div>`:''}`;
 }
 function namazBlock(d){
-  if(!S.namaz.on)return '';
   const c=namazCfg(),t=prayerTimes(d,c);
   let next=null;
   if(d===TODAY){const now=new Date(),h=now.getHours()+now.getMinutes()/60;next=(PRAYERS.find(([k])=>t[k]>h&&!logged(d,'n:'+k))||[])[0]}
-  return `<div class="section"><div class="row between"><h2>Намаз</h2><button class="linkbtn" data-a="namazcfg">${esc(c.label)}</button></div>
+  return `<div class="section">
     ${PRAYERS.map(([k,name,sub])=>{const on=logged(d,'n:'+k);return `<div class="pray ${on?'done':''} ${next===k?'next':''}">
       <button class="tk ${on?'on':''}" data-a="ntog" data-d="${d}" data-p="${k}" aria-pressed="${on}" aria-label="${name}: ${on?'снять отметку':'прочитан'}"></button>
       <span class="pt">${hm(t[k])}</span>
@@ -400,11 +399,25 @@ function namazBlock(d){
 }
 function dailyBlock(d){
   const xs=dailiesOn(d);
-  return `<div class="section"><div class="row between"><h2>Каждый день</h2><button class="chip" data-a="adddaily">+ Ежедневная</button></div>
+  return `<div class="section">
     ${xs.length?xs.map(x=>{const on=logged(d,'d:'+x.id);return `<div class="item ${on?'done':''}">
       <button class="tk ${on?'on':''}" data-a="dtog" data-d="${d}" data-id="${x.id}" aria-pressed="${on}" aria-label="${esc(x.title)}"></button>
       <button class="tbody" data-a="daily" data-id="${x.id}"><div class="tt">${x.time?`<span class="time">${x.time}</span>`:''}${esc(x.title)}</div></button></div>`}).join(''):'<div class="empty">Задачи, которые повторяются каждый день: зарядка, чтение, вода… Галочки сбрасываются каждый новый день.</div>'}
   </div>`;
+}
+function dateNav(d,extra){
+  return `<div class="row between"><button class="iconbtn" data-a="dy" data-n="-1" aria-label="Предыдущий день">${I.left}</button>${extra||(d!==TODAY?'<button class="chip" data-a="today">Сегодня</button>':'<span></span>')}<button class="iconbtn" data-a="dy" data-n="1" aria-label="Следующий день">${I.right}</button></div>`;
+}
+const dayLabel=d=>(d===TODAY?'Сегодня, ':d===addDays(TODAY,-1)?'Вчера, ':d===addDays(TODAY,1)?'Завтра, ':DWF[dow(d)]+', ')+dLong(d);
+function screenNamaz(){
+  const d=curDay(),c=namazCfg();
+  const done=PRAYERS.filter(([k])=>logged(d,'n:'+k)).length;
+  return topbar('Намаз',dayLabel(d))+dateNav(d,`<button class="chip" data-a="namazcfg">${esc(c.label)}</button>`)+namazBlock(d)+
+    `<div class="hint" style="margin-top:12px">${done===5?'Все намазы этого дня прочитаны.':'Отмечайте прочитанный намаз галочкой. Каждый день список начинается заново.'}</div>`;
+}
+function screenDaily(){
+  const d=curDay();
+  return topbar('Каждый день',dayLabel(d))+dateNav(d,'<button class="chip" data-a="adddaily">+ Ежедневная</button>')+dailyBlock(d);
 }
 function dailyForm(x){
   const isNew=!x;x=x||{title:'',time:''};
@@ -417,7 +430,7 @@ function dailyForm(x){
 function namazSheet(){
   const n=S.namaz,cust=n.city==='custom';
   return head('Намаз','Время считается по солнцу для выбранного города')+`<form class="f" data-f="namaz">
-    <label class="row small"><input type="checkbox" id="nz-on" name="on" ${n.on?'checked':''} style="width:auto"> Показывать намазы на экране дня</label>
+    <label class="row small"><input type="checkbox" id="nz-on" name="on" ${n.on?'checked':''} style="width:auto"> Учитывать намазы в галочке дня в календаре</label>
     <label class="fld"><span>Город</span><select id="nz-city" name="city">${CITIES.map(c=>`<option ${n.city===c[0]?'selected':''}>${c[0]}</option>`).join('')}<option value="custom" ${cust?'selected':''}>Свои координаты</option></select></label>
     <div class="three" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px"><label class="fld"><span>Широта</span><input id="nz-lat" name="lat" type="number" step="any" value="${n.lat??''}" placeholder="43.24"></label><label class="fld"><span>Долгота</span><input id="nz-lng" name="lng" type="number" step="any" value="${n.lng??''}" placeholder="76.89"></label><label class="fld"><span>UTC+</span><input id="nz-tz" name="tz" type="number" step="0.5" value="${n.tz??''}" placeholder="5"></label></div>
     <div class="hint">Координаты нужны, только если выбрано «Свои координаты».</div>
@@ -607,9 +620,10 @@ function newMonthSheet(){
 /* ===================== render ===================== */
 function render(){
   const r=ui.route;
-  const html={month:screenMonth,day:screenDay,goals:screenGoals,money:screenMoney}[r]();
+  const html={month:screenMonth,day:screenDay,goals:screenGoals,namaz:screenNamaz,daily:screenDaily,money:screenMoney}[r]();
+  $('.fab').hidden=r==='namaz';
   $('#app').innerHTML=`<div class="wrap">${html}<div style="margin-top:28px;display:flex;justify-content:center">${syncHTML()}</div></div>`;
-  $('#nav').innerHTML=[['month','Месяц'],['day','День'],['goals','Цели'],['money','Финансы']].map(([k,v])=>`<button class="${r===k?'on':''}" data-a="nav" data-r="${k}" aria-current="${r===k?'page':'false'}">${I[k]}<span>${v}</span></button>`).join('');
+  $('#nav').innerHTML=[['month','Месяц'],['day','День'],['goals','Цели'],['namaz','Намаз'],['daily','Ежедневно'],['money','Финансы']].map(([k,v])=>`<button class="${r===k?'on':''}" data-a="nav" data-r="${k}" aria-current="${r===k?'page':'false'}">${I[k]}<span>${v}</span></button>`).join('');
 }
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,1800)}
@@ -618,6 +632,7 @@ function arm(el,text){if(el.dataset.armed)return true;el.dataset.armed='1';el.te
 /* ===================== actions ===================== */
 const A={
   nav:d=>{location.hash=d.r},
+  today:()=>{ui.day=TODAY;render()},
   ntog:d=>{toggleLog(d.d,'n:'+d.p);commit()},
   dtog:d=>{toggleLog(d.d,'d:'+d.id);commit()},
   adddaily:()=>openSheet(()=>head('Ежедневная задача','Появляется каждый день, галочка сбрасывается утром')+dailyForm(null)),
@@ -635,6 +650,7 @@ const A={
   goal:d=>openSheet(goalSheet(d.id)),
   event:d=>openSheet(eventSheet(d.id)),
   add:d=>{
+    if(!d.tab&&ui.route==='daily'){A.adddaily();return}
     if(!d.tab&&ui.route==='money'){ui.moneyType='expense';openSheet(()=>head('Новая операция')+opForm(null));return}
     ui.addTab=d.tab||'task';ui.addPre={date:d.d||(ui.route==='day'?curDay():undefined),keyTaskId:d.k};openSheet(addSheet)},
   tab:d=>{ui.addTab=d.t;renderSheet()},
