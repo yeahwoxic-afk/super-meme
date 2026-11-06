@@ -118,6 +118,11 @@ form.f{display:flex;flex-direction:column;gap:12px}
 .op{display:flex;gap:10px;align-items:center;background:var(--card);border-radius:12px;padding:10px 12px;width:100%;border:0;text-align:left}
 .op .amt{font-weight:750;white-space:nowrap}
 .daylbl{font-size:12px;color:var(--mute);font-weight:600;margin-top:6px}
+.pray{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:12px;padding:10px 12px}
+.pray.next{box-shadow:inset 0 0 0 1px var(--acc)}
+.pray .pt{font-size:18px;font-weight:750;min-width:58px}
+.pray.done .pn{color:var(--mute);text-decoration:line-through}
+.linkbtn{background:none;border:0;padding:0;color:var(--acc);font-size:13px;font-weight:600}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 90px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;font-size:14px;z-index:60;max-width:calc(100% - 32px)}
 @media (max-width:420px){.cell{min-height:50px;padding:5px}.money3 b{font-size:16px}}
 </style>
@@ -156,13 +161,43 @@ const SPHERE_COLORS=['#64A8FF','#BF7AF0','#FF9F5A','#4FD1C5','#E58FB5','#A3B1FF'
 const EXP_CATS=['Обязательные','Депозит','Благое','Гулянки','Агентство','Еда','Транспорт','Жильё','Связь и подписки','Здоровье','Одежда','Остальное'];
 const OTHER='Остальное';
 const INC_CATS=['Клиенты','Зарплата','Подработка','Возврат долга','Остальное'];
+const PRAYERS=[['fajr','Фаджр','утренний'],['dhuhr','Зухр','обеденный'],['asr','Аср','послеобеденный'],['maghrib','Магриб','вечерний'],['isha','Иша','ночной']];
+/* [город, широта, долгота, часовой пояс UTC+] */
+const CITIES=[['Алматы',43.2389,76.8897,5],['Астана',51.1694,71.4491,5],['Шымкент',42.3417,69.5901,5],['Караганда',49.8047,73.1094,5],['Актобе',50.2839,57.167,5],['Тараз',42.9,71.3667,5],['Павлодар',52.2873,76.9674,5],['Усть-Каменогорск',49.9483,82.6279,5],['Семей',50.4111,80.2275,5],['Атырау',47.1164,51.8833,5],['Актау',43.6481,51.1722,5],['Кызылорда',44.8488,65.4823,5],['Костанай',53.2198,63.6354,5],['Уральск',51.2333,51.3667,5],['Петропавловск',54.8667,69.15,5],['Кокшетау',53.2833,69.3833,5],['Талдыкорган',45.0156,78.3739,5],['Туркестан',43.2973,68.2517,5],['Ташкент',41.2995,69.2401,5],['Бишкек',42.8746,74.5698,6],['Москва',55.7558,37.6173,3],['Казань',55.7963,49.1088,3],['Стамбул',41.0082,28.9784,3]];
+/* adj — поправки в минутах, как в официальном расписании ДУМК */
+const METHODS={kz:{name:'ДУМ Казахстана (Фаджр 15°, Иша 15°)',fajr:15,isha:15,adj:{sunrise:-3,dhuhr:3,asr:2,maghrib:2}},mwl:{name:'Всемирная исламская лига (18°, 17°)',fajr:18,isha:17,adj:{dhuhr:1}}};
+function namazCfg(){
+  const n=S.namaz;
+  const c=n.city==='custom'?[n.city,+n.lat,+n.lng,+n.tz]:(CITIES.find(x=>x[0]===n.city)||CITIES[0]);
+  const m=METHODS[n.method]||METHODS.kz;
+  return {lat:c[1],lng:c[2],tz:c[3],fajr:m.fajr,isha:m.isha,adj:m.adj||{},asrF:n.asr==='shafii'?1:2,label:(n.city==='custom'?'Свои координаты':c[0])};
+}
+/** Астрономический расчёт времени намаза (положение солнца на местный полдень). Возвращает часы местного времени. */
+function prayerTimes(ds,c){
+  const rad=Math.PI/180,[y,m,d]=ds.split('-').map(Number);
+  const jd=Date.UTC(y,m-1,d)/864e5+2440587.5+(12-c.tz)/24-c.lng/360;
+  const D=jd-2451545,g=(357.529+0.98560028*D)*rad,q=280.459+0.98564736*D;
+  const L=(q+1.915*Math.sin(g)+0.02*Math.sin(2*g))*rad,e=(23.439-0.00000036*D)*rad;
+  const fix=h=>((h%24)+24)%24;
+  const ra=fix(Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L))/rad/15);
+  const decl=Math.asin(Math.sin(e)*Math.sin(L));
+  let eqt=fix(q/15)-ra;if(eqt>12)eqt-=24;if(eqt<-12)eqt+=24;
+  const noon=12+c.tz-c.lng/15-eqt,lat=c.lat*rad;
+  const T=a=>{const v=(-Math.sin(a*rad)-Math.sin(decl)*Math.sin(lat))/(Math.cos(decl)*Math.cos(lat));return Math.abs(v)>1?NaN:Math.acos(v)/rad/15};
+  const asrA=-Math.atan(1/(c.asrF+Math.tan(Math.abs(lat-decl))))/rad;
+  const r={fajr:noon-T(c.fajr),sunrise:noon-T(0.833),dhuhr:noon,asr:noon+T(asrA),maghrib:noon+T(0.833),isha:noon+T(c.isha)};
+  for(const k in c.adj)r[k]+=c.adj[k]/60;
+  return r;
+}
+const hm=h=>{if(isNaN(h))return '—';let m=Math.round(h*60);m=((m%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(m%60)};
 
 /* ===================== state & storage ===================== */
 function emptyState(){
   const [start,end]=monthBounds(TODAY.slice(0,7));
   return {v:3,month:{start,end,focus:''},
     spheres:['Работа','Клиенты','Финансы','Здоровье','Личное'].map((name,i)=>({id:uid(),name,color:SPHERE_COLORS[i]})),
-    goals:[],keyTasks:[],subtasks:[],events:[],finance:{currency:'₸',entries:[],plans:{}}};
+    goals:[],keyTasks:[],subtasks:[],events:[],finance:{currency:'₸',entries:[],plans:{}},
+    daily:[],dailyLog:{},namaz:{on:true,city:'Алматы',method:'kz',asr:'hanafi'}};
 }
 /** Пример из первой версии заменяется пустым планом; старые сохранения приводятся к простым галочкам. */
 function normalize(x){
@@ -174,6 +209,9 @@ function normalize(x){
   x.goals=x.goals.filter(g=>g.status!=='cancelled');x.goals.forEach(g=>{g.done=g.done??(g.status==='done')});
   x.keyTasks=x.keyTasks.filter(k=>k.status!=='cancelled');x.keyTasks.forEach(k=>{k.done=k.done??(k.status==='done')});
   x.subtasks=x.subtasks.filter(s=>s.status!=='cancelled'&&s.date);x.subtasks.forEach(s=>{s.done=s.done??(s.status==='done')});
+  x.daily=x.daily||[];x.dailyLog=x.dailyLog||{};
+  x.namaz=x.namaz||{on:true,city:'Алматы',method:'kz',asr:'hanafi'};
+  const cut=addDays(TODAY,-120);for(const k of Object.keys(x.dailyLog))if(k<cut)delete x.dailyLog[k];
   delete x.archive;delete x.settings;
   return x;
 }
@@ -231,7 +269,15 @@ const goalOfSub=s=>{const k=s.keyTaskId&&keyById(s.keyTaskId);return k?goalById(
 const inMonth=d=>d>=S.month.start&&d<=S.month.end;
 const monthTitle=()=>ymTitle(S.month.start.slice(0,7));
 const tasksOn=d=>S.subtasks.filter(s=>s.date===d);
-const dayDone=d=>{const t=tasksOn(d);return t.length>0&&t.every(s=>s.done)};
+const logOf=d=>S.dailyLog[d]||[];
+const logged=(d,k)=>logOf(d).includes(k);
+function toggleLog(d,k){const a=new Set(logOf(d));a.has(k)?a.delete(k):a.add(k);if(a.size)S.dailyLog[d]=[...a];else delete S.dailyLog[d]}
+const dailiesOn=d=>S.daily.filter(x=>!x.from||x.from<=d).sort((a,b)=>(a.time||'99').localeCompare(b.time||'99'));
+/** День отмечен галочкой, когда сделано всё: задачи дня, ежедневные и (если включено) 5 намазов. */
+const dayDone=d=>{
+  const items=[...tasksOn(d).map(s=>s.done),...dailiesOn(d).map(x=>logged(d,'d:'+x.id)),...(S.namaz.on?PRAYERS.map(([k])=>logged(d,'n:'+k)):[])];
+  return items.length>0&&items.every(Boolean);
+};
 
 /* finance */
 const money=n=>{const r=Math.round((+n||0)*100)/100;return r.toLocaleString('ru-RU',{maximumFractionDigits:2})+' '+(S.finance.currency||'')};
@@ -316,7 +362,7 @@ function screenMonth(){
   `<div class="section" style="margin-top:4px"><div class="row between"><h2>Цели месяца</h2>${S.goals.length?'<button class="chip" data-a="add" data-tab="goal">+ Цель</button>':''}</div>
      ${S.goals.length?S.goals.map(goalRow).join(''):`<div class="empty"><span>Целей пока нет. Поставьте 3–5 целей на месяц.</span><button class="btnp" data-a="add" data-tab="goal">Добавить первую цель</button></div>`}
    </div>
-   <div class="section"><div class="row between"><h2>Календарь</h2><span class="small mute">галочка — все задачи дня сделаны</span></div><div class="cal">${cal}</div></div>
+   <div class="section"><div class="row between"><h2>Календарь</h2><span class="small mute">галочка — всё за день сделано</span></div><div class="cal">${cal}</div></div>
    <div class="section"><div class="row between"><h2>Ключевые события</h2><button class="chip" data-a="add" data-tab="event">+ Событие</button></div>
      ${upcoming.length?upcoming.map(eventRow).join(''):'<div class="empty">Запуски, встречи, дедлайны и оплаты появятся здесь.</div>'}
    </div>
@@ -333,8 +379,50 @@ function screenDay(){
   return topbar(label,`${DWF[dow(d)]}, ${dLong(d)}`)+
   `<div class="row between"><button class="iconbtn" data-a="dy" data-n="-1" aria-label="Предыдущий день">${I.left}</button><button class="chip" data-a="add" data-tab="task" data-d="${d}">+ Задача</button><button class="iconbtn" data-a="dy" data-n="1" aria-label="Следующий день">${I.right}</button></div>
    ${evs.length?`<div class="section"><h2>События дня</h2>${evs.map(eventRow).join('')}</div>`:''}
+   ${namazBlock(d)}
+   ${dailyBlock(d)}
    <div class="section"><h2>Задачи</h2>${ts.length?ts.map(taskRow).join(''):'<div class="empty">На этот день задач нет.</div>'}</div>
    ${left&&d<=TODAY?`<div class="section"><button class="btn2" data-a="carry" data-d="${d}">Перенести невыполненное на завтра</button></div>`:''}`;
+}
+function namazBlock(d){
+  if(!S.namaz.on)return '';
+  const c=namazCfg(),t=prayerTimes(d,c);
+  let next=null;
+  if(d===TODAY){const now=new Date(),h=now.getHours()+now.getMinutes()/60;next=(PRAYERS.find(([k])=>t[k]>h&&!logged(d,'n:'+k))||[])[0]}
+  return `<div class="section"><div class="row between"><h2>Намаз</h2><button class="linkbtn" data-a="namazcfg">${esc(c.label)}</button></div>
+    ${PRAYERS.map(([k,name,sub])=>{const on=logged(d,'n:'+k);return `<div class="pray ${on?'done':''} ${next===k?'next':''}">
+      <button class="tk ${on?'on':''}" data-a="ntog" data-d="${d}" data-p="${k}" aria-pressed="${on}" aria-label="${name}: ${on?'снять отметку':'прочитан'}"></button>
+      <span class="pt">${hm(t[k])}</span>
+      <div class="grow"><div class="tt pn">${name}</div><div class="meta"><span>${sub}${k==='fajr'?' · до восхода '+hm(t.sunrise):''}</span>${next===k?'<span style="color:var(--acc);font-weight:650">следующий</span>':''}</div></div>
+    </div>`}).join('')}</div>`;
+}
+function dailyBlock(d){
+  const xs=dailiesOn(d);
+  return `<div class="section"><div class="row between"><h2>Каждый день</h2><button class="chip" data-a="adddaily">+ Ежедневная</button></div>
+    ${xs.length?xs.map(x=>{const on=logged(d,'d:'+x.id);return `<div class="item ${on?'done':''}">
+      <button class="tk ${on?'on':''}" data-a="dtog" data-d="${d}" data-id="${x.id}" aria-pressed="${on}" aria-label="${esc(x.title)}"></button>
+      <button class="tbody" data-a="daily" data-id="${x.id}"><div class="tt">${x.time?`<span class="time">${x.time}</span>`:''}${esc(x.title)}</div></button></div>`}).join(''):'<div class="empty">Задачи, которые повторяются каждый день: зарядка, чтение, вода… Галочки сбрасываются каждый новый день.</div>'}
+  </div>`;
+}
+function dailyForm(x){
+  const isNew=!x;x=x||{title:'',time:''};
+  return `<form class="f" data-f="daily" data-id="${isNew?'':x.id}">
+    <label class="fld"><span>Что делать каждый день</span><input id="df-title" name="title" value="${esc(x.title)}" required autofocus autocomplete="off"></label>
+    <label class="fld"><span>Время (необязательно)</span><input id="df-time" type="time" name="time" value="${x.time||''}"></label>
+    <button class="btnp" type="submit">${isNew?'Добавить ежедневную задачу':'Сохранить'}</button>
+  </form>${isNew?'':`<button class="btn2 danger" data-a="deldaily" data-id="${x.id}" style="margin-top:10px;width:100%">Удалить ежедневную задачу</button>`}`;
+}
+function namazSheet(){
+  const n=S.namaz,cust=n.city==='custom';
+  return head('Намаз','Время считается по солнцу для выбранного города')+`<form class="f" data-f="namaz">
+    <label class="row small"><input type="checkbox" id="nz-on" name="on" ${n.on?'checked':''} style="width:auto"> Показывать намазы на экране дня</label>
+    <label class="fld"><span>Город</span><select id="nz-city" name="city">${CITIES.map(c=>`<option ${n.city===c[0]?'selected':''}>${c[0]}</option>`).join('')}<option value="custom" ${cust?'selected':''}>Свои координаты</option></select></label>
+    <div class="three" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px"><label class="fld"><span>Широта</span><input id="nz-lat" name="lat" type="number" step="any" value="${n.lat??''}" placeholder="43.24"></label><label class="fld"><span>Долгота</span><input id="nz-lng" name="lng" type="number" step="any" value="${n.lng??''}" placeholder="76.89"></label><label class="fld"><span>UTC+</span><input id="nz-tz" name="tz" type="number" step="0.5" value="${n.tz??''}" placeholder="5"></label></div>
+    <div class="hint">Координаты нужны, только если выбрано «Свои координаты».</div>
+    <label class="fld"><span>Метод расчёта</span><select id="nz-method" name="method">${Object.entries(METHODS).map(([k,v])=>`<option value="${k}" ${n.method===k?'selected':''}>${v.name}</option>`).join('')}</select></label>
+    <label class="fld"><span>Время Аср</span><select id="nz-asr" name="asr"><option value="hanafi" ${n.asr!=='shafii'?'selected':''}>Ханафитский мазхаб</option><option value="shafii" ${n.asr==='shafii'?'selected':''}>Шафиитский и другие</option></select></label>
+    <button class="btnp" type="submit">Сохранить</button>
+    <div class="hint">Время может отличаться от мечети на 1–3 минуты.</div></form>`;
 }
 function screenGoals(){
   return topbar('Цели',monthTitle())+
@@ -399,7 +487,7 @@ function taskForm(s,pre={}){
     <label class="fld"><span>Что сделать</span><input id="tf-title" name="title" value="${esc(s.title)}" required autofocus autocomplete="off"></label>
     ${S.keyTasks.length?`<label class="fld"><span>К какому шагу цели относится</span><select id="tf-link" name="link">${linkOptions(s.keyTaskId)}</select></label>`:''}
     <div class="two"><label class="fld"><span>Дата</span><input id="tf-date" type="date" name="date" value="${s.date||''}" required></label><label class="fld"><span>Время</span><input id="tf-time" type="time" name="time" value="${s.time||''}"></label></div>
-    ${isNew?'<label class="fld"><span>Чек-пункты, каждый с новой строки (необязательно)</span><textarea id="tf-checks" name="checks"></textarea></label>':''}
+    ${isNew?'<label class="fld"><span>Чек-пункты, каждый с новой строки (необязательно)</span><textarea id="tf-checks" name="checks"></textarea></label><label class="row small"><input type="checkbox" id="tf-repeat" name="repeat" style="width:auto"> Повторять каждый день</label>':''}
     <button class="btnp" type="submit">${isNew?'Добавить задачу':'Сохранить'}</button>
   </form>`;
 }
@@ -501,6 +589,7 @@ function settingsSheet(){
     <button class="btnp" type="submit">Сохранить</button></form>
     <div class="section"><h3>Сферы целей</h3><div class="chips">${S.spheres.map(s=>`<span class="chip"><span class="dot" style="background:${s.color}"></span>${esc(s.name)}${S.goals.some(g=>g.sphereId===s.id)?'':`<button class="x" style="width:22px;height:22px;font-size:15px;background:none" data-a="delsphere" data-id="${s.id}" aria-label="Удалить сферу ${esc(s.name)}">×</button>`}</span>`).join('')}</div>
       <form class="f" data-f="sphere" style="flex-direction:row"><input id="st-sphere" name="name" placeholder="Новая сфера" required autocomplete="off"><button class="btn2" type="submit">Добавить</button></form></div>
+    <div class="section"><h3>Намаз</h3><button class="btn2" data-a="namazcfg">Город и метод расчёта · ${esc(namazCfg().label)}</button></div>
     <div class="section"><h3>Месяц</h3><div class="btnrow"><button class="btn2" data-a="newmonth">Начать новый месяц</button><button class="btn2 danger" data-a="wipe">Очистить всё</button></div>
       <div class="small mute">${syncState==='db'?'Данные хранятся в вашем аккаунте и видны только вам.':'Данные хранятся в этом браузере.'}</div></div>`;
 }
@@ -527,6 +616,12 @@ function arm(el,text){if(el.dataset.armed)return true;el.dataset.armed='1';el.te
 /* ===================== actions ===================== */
 const A={
   nav:d=>{location.hash=d.r},
+  ntog:d=>{toggleLog(d.d,'n:'+d.p);commit()},
+  dtog:d=>{toggleLog(d.d,'d:'+d.id);commit()},
+  adddaily:()=>openSheet(()=>head('Ежедневная задача','Появляется каждый день, галочка сбрасывается утром')+dailyForm(null)),
+  daily:d=>openSheet(()=>{const x=S.daily.find(y=>y.id===d.id);return x?head('Ежедневная задача')+dailyForm(x):null}),
+  deldaily:(d,el)=>{if(!arm(el))return;S.daily=S.daily.filter(x=>x.id!==d.id);for(const k of Object.keys(S.dailyLog)){S.dailyLog[k]=S.dailyLog[k].filter(v=>v!=='d:'+d.id);if(!S.dailyLog[k].length)delete S.dailyLog[k]}closeSheet();commit('Удалено')},
+  namazcfg:()=>openSheet(namazSheet),
   goday:d=>{ui.day=d.d;location.hash='day';if(ui.route==='day')render()},
   dy:d=>{ui.day=addDays(curDay(),+d.n);render()},
   fym:d=>{ui.finYm=ymShift(ui.finYm,+d.n);render()},
@@ -568,6 +663,7 @@ const F={
   task:(fd,f)=>{
     const id=f.dataset.id;
     const data={title:fd.get('title').trim(),date:fd.get('date'),time:fd.get('time')||'',keyTaskId:fd.get('link')||null};
+    if(!id&&fd.get('repeat')){S.daily.push({id:uid(),title:data.title,time:data.time,from:data.date<TODAY?data.date:TODAY});closeSheet();commit('Ежедневная задача добавлена');return}
     if(id){const s=subById(id);if(data.date!==s.date)moveSub(s,data.date);Object.assign(s,data);closeSheet();commit('Сохранено');return}
     const checks=(fd.get('checks')||'').split('\n').map(x=>x.trim()).filter(Boolean).map(text=>({id:uid(),text,done:false}));
     S.subtasks.push({id:uid(),...data,done:false,moves:0,checks});
@@ -600,6 +696,10 @@ const F={
     closeSheet();commit(id?'Сохранено':(f.dataset.t==='income'?'Доход записан':'Расход записан'));
   },
   plan:fd=>{const ym=ui.finYm;const i=+fd.get('income')||0,e=+fd.get('expense')||0;if(i||e)S.finance.plans[ym]={income:i,expense:e};else delete S.finance.plans[ym];closeSheet();commit('План сохранён')},
+  daily:(fd,f)=>{const id=f.dataset.id,data={title:fd.get('title').trim(),time:fd.get('time')||''};if(id)Object.assign(S.daily.find(x=>x.id===id),data);else S.daily.push({id:uid(),...data,from:TODAY});closeSheet();commit(id?'Сохранено':'Ежедневная задача добавлена')},
+  namaz:fd=>{const city=fd.get('city');
+    if(city==='custom'&&!(fd.get('lat')&&fd.get('lng')&&fd.get('tz'))){toast('Укажите широту, долготу и часовой пояс');return}
+    S.namaz={on:!!fd.get('on'),city,method:fd.get('method'),asr:fd.get('asr'),...(city==='custom'?{lat:+fd.get('lat'),lng:+fd.get('lng'),tz:+fd.get('tz')}:{})};closeSheet();commit('Сохранено')},
   check:(fd,f)=>{const s=subById(f.dataset.id);s.checks=s.checks||[];s.checks.push({id:uid(),text:fd.get('text').trim(),done:false});commit()},
   move:(fd,f)=>{const d=fd.get('date');moveSub(subById(f.dataset.id),d);closeSheet();commit('Перенесено на '+dShort(d))},
   settings:fd=>{S.month.focus=fd.get('focus').trim();S.finance.currency=fd.get('currency').trim();closeSheet();commit('Сохранено')},
